@@ -1,33 +1,30 @@
 package org.apache.zookeeper.faaskeeper.model;
 
 import java.util.Map;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.math.BigInteger;
 import java.util.concurrent.CompletableFuture;
 import com.fasterxml.jackson.databind.JsonNode;
 
-public class CreateNode extends RequestOperation {
+public class SetData extends RequestOperation {
     private byte[] value;
-    private int flags;
+    private int version;
+    private String encodedValue;
     private static final Logger LOG;
     static {
-        LOG = LoggerFactory.getLogger(CreateNode.class);
+        LOG = LoggerFactory.getLogger(SetData.class);
     }
 
-    public CreateNode(String sessionId, String path, byte[] value, int flags) {
+    public SetData(String sessionId, String path, byte[] value, int version) {
         super(sessionId, path);
         this.value = value;
-        this.flags = flags;
-    }
-
-    public CreateNode(Map<String, Object> data) {
-        super(data);
-        this.value = (byte[]) data.get("data");
-        this.flags = (int) data.get("flags");
+        this.version = version;
+        this.encodedValue = Base64.getEncoder().encodeToString(value);
     }
 
     public Map<String, Object> generateRequest() {
@@ -35,26 +32,23 @@ public class CreateNode extends RequestOperation {
         requestData.put("op", getName());
         requestData.put("path", this.path);
         requestData.put("session_id", this.sessionId);
-        requestData.put("version", -1);
-        // FIXME: Handle flags in FK. 0 is passed  as flag instead of actual value
-        requestData.put("flags", 0);
         requestData.put("data", this.value);
+        requestData.put("version", this.version);
 
         return requestData;
     }
 
     public void processResult(JsonNode result, CompletableFuture<Node> future) {
-        String status = result.get("status").asText();
-        if ("success".equals(status)) {
+        if ("success".equals(result.get("status").asText())) {
             try {
                 Node n = new Node(result.get("path").asText());
-                JsonNode sysCounterNode = result.get("system_counter");
+                JsonNode sysCounterNode = result.get("modified_system_counter");
                 if (sysCounterNode.isArray()) {
                     List<BigInteger> sysCounter = new ArrayList<>();
                     for (JsonNode val: sysCounterNode) {
                         sysCounter.add(new BigInteger(val.asText()));
                     }
-                    n.setCreated(new Version(SystemCounter.fromRawData(sysCounter), null));
+                    n.setModified(new Version(SystemCounter.fromRawData(sysCounter), null));
                 } else {
                     throw new IllegalStateException("System counter data is not an array");
                 }
@@ -66,23 +60,32 @@ public class CreateNode extends RequestOperation {
         } else {
             String reason = result.get("reason") != null ? result.get("reason").asText() : "";
             switch (reason) {
-                case "node_exists":
-                    future.completeExceptionally(new RuntimeException("Node already exists: " + result.get("path").asText()));
+                case "update_failure":
+                    future.completeExceptionally(new RuntimeException("Update failure"));
                     break;
                 case "node_doesnt_exist":
-                    future.completeExceptionally(new RuntimeException("Node does not exist: " + result.get("path").asText()));
+                    future.completeExceptionally(new RuntimeException("Node doesn't exist"));
                     break;
                 case "update_not_committed":
                     future.completeExceptionally(new RuntimeException("Update could not be applied"));
                     break;
                 default:
-                    future.completeExceptionally(new RuntimeException("Unknown error occurred: " + reason));
+                    future.completeExceptionally(new RuntimeException("Unknown error: " + reason));
+                    break;
             }
         }
     }
 
     public String getName() {
-        return "create_node";
+        return "set_data";
     }
 
+    public String getDataB64() {
+        return encodedValue;
+    }
+
+    public void setDataB64(String val) {
+        encodedValue = val;
+    }
 }
+

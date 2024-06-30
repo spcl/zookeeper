@@ -13,14 +13,9 @@ import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.WorkQueueItem;
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
-import org.apache.zookeeper.faaskeeper.model.CreateNode;
-import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.DirectOperation;
 import org.apache.zookeeper.faaskeeper.model.RegisterSession;
 import org.apache.zookeeper.faaskeeper.model.RequestOperation;
-import java.util.concurrent.CompletableFuture;
-
-
 
 public class SubmitterThread implements Runnable {
     private Future<?> future;
@@ -64,7 +59,6 @@ public class SubmitterThread implements Runnable {
             try {
 
                 if (request.operation instanceof RequestOperation) {
-                    // TODO: Remove this log
                     LOG.debug("Adding expected result to eventQueue");
                     RequestOperation op = (RequestOperation) request.operation;
                     eventQueue.addExpectedResult(request.requestID, op, request.future);
@@ -87,8 +81,6 @@ public class SubmitterThread implements Runnable {
                     LOG.error("Unknown request type: " + request.operation.getClass().getName());
                 }
 
-                // TODO: Handle other ops. Start with regSession op. Need to create opType for regsession too
-
             } catch (Exception e) {
                 LOG.error("Exception in processing WorkQueue events in submitter thread", e);
                 try {
@@ -100,7 +92,7 @@ public class SubmitterThread implements Runnable {
             }
         }
 
-        LOG.debug("SubmitterThread loop existed successfully");
+        LOG.debug("SubmitterThread loop exited successfully");
     }
 
     public void stop() {

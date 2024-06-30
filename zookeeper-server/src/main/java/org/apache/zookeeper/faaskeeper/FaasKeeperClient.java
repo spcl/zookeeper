@@ -19,12 +19,12 @@ import java.util.concurrent.ExecutionException;
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
 import org.apache.zookeeper.faaskeeper.provider.AwsClient;
 import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.model.SetData;
 import org.apache.zookeeper.faaskeeper.model.CreateNode;
+import org.apache.zookeeper.faaskeeper.model.DeleteNode;
 import org.apache.zookeeper.faaskeeper.model.RegisterSession;
 
 public class FaasKeeperClient {
-    // TODO: Move this reqId to the queue once implemented
-    private int reqIdTempRemoveLater = 0;
     private FaasKeeperConfig cfg;
     private int port;
     private boolean heartbeat = true;
@@ -104,10 +104,43 @@ public class FaasKeeperClient {
 
     // TODO: Make async method
     public CompletableFuture<Node> createAsync(String path, byte[] value, int flags) throws Exception {
+        if (sessionId == null || sessionId.isEmpty()) {
+            throw new RuntimeException("Missing session id in FK client");
+        }
         CreateNode requestOp = new CreateNode(sessionId, path, value, flags);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
         return future;
     }
-}
 
+    public Node setData(String path, byte[] value, int version) throws Exception {
+        CompletableFuture<Node> future = setDataAsync(path, value, version);
+        return future.get();
+    }
+
+    public CompletableFuture<Node> setDataAsync(String path, byte[] value, int version) throws Exception {
+        if (sessionId == null || sessionId.isEmpty()) {
+            throw new RuntimeException("Missing session id in FK client");
+        }
+        SetData requestOp = new SetData(sessionId, path, value, version);
+        CompletableFuture<Node> future = new CompletableFuture<Node>();
+        workQueue.addRequest(requestOp, future);
+        return future;
+    }
+
+    public void delete(String path, int version) throws Exception {
+        CompletableFuture<Node> future = deleteAsync(path, version);
+        future.get();
+    }
+
+    public CompletableFuture<Node> deleteAsync(String path, int version) throws Exception {
+        if (sessionId == null || sessionId.isEmpty()) {
+            throw new RuntimeException("Missing session id in FK client");
+        }
+        DeleteNode requestOp = new DeleteNode(sessionId, path, version);
+        CompletableFuture<Node> future = new CompletableFuture<Node>();
+        workQueue.addRequest(requestOp, future);
+        return future;
+    }
+
+}

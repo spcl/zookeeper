@@ -81,6 +81,8 @@ public class SqsListener implements Runnable {
                 try {
                     JsonNode node = objectMapper.readTree(msg.getBody());
 
+                    LOG.info("RECVD: " + node.toString());
+
                     if (node.has("type") && node.get("type").asText().equals("heartbeat")) {
                         // TODO: Handle heartbeat
                         LOG.debug("Heartbeat message received");
