@@ -1,10 +1,4 @@
 package org.apache.zookeeper.faaskeeper.model;
-
-import java.util.Optional;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.concurrent.Future;
-
 /**
  * Abstract base class for all provider-agnostic operations submitted to FK instance.
  */
