@@ -1,4 +1,4 @@
-package com.example.queue;
+package org.apache.zookeeper.faaskeeper.queue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
