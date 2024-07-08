@@ -1,6 +1,5 @@
 package org.apache.zookeeper.faaskeeper.model;
 
-
 import java.util.Map;
 import java.util.Set;
 import java.util.List;

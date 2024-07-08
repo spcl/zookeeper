@@ -7,6 +7,7 @@ import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 
 // sqs deps
 import com.amazonaws.services.sqs.AmazonSQS;
@@ -16,20 +17,32 @@ import com.amazonaws.services.sqs.model.SendMessageResult;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
+import java.util.List;
 import java.util.HashMap;
+import java.util.Optional;
+import java.util.ArrayList;
+import java.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.math.BigInteger;
+import java.util.stream.Collectors;
+
+
+import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.model.QueueType;
+import org.apache.zookeeper.faaskeeper.model.Version;
+import org.apache.zookeeper.faaskeeper.model.EpochCounter;
+import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 
 import org.apache.zookeeper.faaskeeper.FaasKeeperConfig;
-import org.apache.zookeeper.faaskeeper.model.QueueType;
-
 
 public class AwsClient extends ProviderClient {
     private final AmazonSQS sqs;
     private final DynamoDbClient ddb;
     private final String userTable;
+    private final String dataTable;
     private static final Logger LOG;
     private final String writerQueueName;
     private final String writerQueueUrl;
@@ -48,6 +61,9 @@ public class AwsClient extends ProviderClient {
             .build();
         
         this.userTable = String.format("faaskeeper-%s-users", config.getDeploymentName());
+
+        this.dataTable = String.format("faaskeeper-%s-data", config.getDeploymentName());
+
         this.writerQueueName = String.format("faaskeeper-%s-writer-sqs.fifo", config.getDeploymentName());
         // this.writerQueueName = "fk-test.fifo";
         this.writerQueueUrl = sqs.getQueueUrl(writerQueueName).getQueueUrl();
@@ -101,7 +117,91 @@ public class AwsClient extends ProviderClient {
             LOG.error("Error sending request: ", e);
             throw e;
         }
+
     }
+
+    public Node getData(String path) throws DynamoDbException, Exception {
+        Map<String, AttributeValue> key = new HashMap<>();
+        key.put("path", AttributeValue.builder().s(path).build());
+
+        GetItemRequest getRequest = GetItemRequest.builder()
+            .tableName(dataTable)
+            .key(key)
+            .consistentRead(true)
+            .build();
+
+        try {
+            Map<String, AttributeValue> result = ddb.getItem(getRequest).item();
+
+            if (result != null && !result.isEmpty()) {
+                // TODO: Remove later
+                // for (Map.Entry<String, AttributeValue> entry : result.entrySet()) {
+                //     LOG.debug("Key: " + entry.getKey() + ", Value: " + entry.getValue().toString());
+                // }
+
+                Node node = new Node(path);
+
+                List<BigInteger> modifiedSysCounter = result.containsKey("mFxidSys") && !result.get("mFxidSys").l().isEmpty()
+                    ? result.get("mFxidSys").l().stream()
+                        .map(AttributeValue::n)
+                        .map(BigInteger::new)
+                        .collect(Collectors.toList())
+                    : null;
+                                    
+                Set<String> modifiedEpochCounter = result.containsKey("mFxidEpoch") && !result.get("mFxidEpoch").ss().isEmpty() ?
+                    result.get("mFxidEpoch").ss().stream()
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toSet()) : null;
+                
+
+                byte[] data = result.get("data") != null ? result.get("data").b().asByteArray() : null;
+
+                List<String> children = result.containsKey("children") && !result.get("children").l().isEmpty() ? 
+                        result.get("children").l().stream()
+                            .map(AttributeValue::s)
+                            .collect(Collectors.toList()) : null;
+
+                List<BigInteger> createdSysCounter = result.containsKey("cFxidSys") && !result.get("cFxidSys").l().isEmpty()
+                    ? result.get("cFxidSys").l().stream()
+                        .map(AttributeValue::n)
+                        .map(BigInteger::new)
+                        .collect(Collectors.toList())
+                    : null;    
+
+                if (createdSysCounter != null) {
+                    node.setCreated(new Version(SystemCounter.fromRawData(createdSysCounter), null));
+                } else {
+                    // Should an exception be raised here?
+                    LOG.error("Fatal error: Node missing created system counter");
+                }
+
+                if (modifiedSysCounter != null) {
+                    node.setModified(new Version(SystemCounter.fromRawData(modifiedSysCounter), 
+                        modifiedEpochCounter != null ? EpochCounter.fromRawData(modifiedEpochCounter) : null));
+                }
+
+                if (children != null) {
+                    node.setChildren(children);
+                } else {
+                    node.setChildren(new ArrayList<String>());
+                }
+
+                if (data != null) {
+                    node.setData(data);
+                    node.setDataB64(Base64.getEncoder().encodeToString(data));
+                }
+                
+                return node;
+            } else {
+                LOG.debug("Empty result from ddb. Node does not exist");
+                throw new NodeDoesNotExist(path);
+            }
+        } catch (DynamoDbException e) {
+            LOG.error("Error fetching node data from DynamoDB: " + e.getMessage());
+            throw e;
+        }
+    }
+
 
 
 }

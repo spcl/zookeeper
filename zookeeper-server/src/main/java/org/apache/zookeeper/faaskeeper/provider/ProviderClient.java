@@ -1,6 +1,8 @@
 package org.apache.zookeeper.faaskeeper.provider;
 
 import java.util.Map;
+import java.util.Optional;
+import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.FaasKeeperConfig;
 
 // import java.util.List;
@@ -15,15 +17,11 @@ public abstract class ProviderClient {
         config = cfg;
     }
 
-    // public abstract SimpleEntry<Node, Optional<Watch>> getData(String path, WatchCallbackType watch, SimpleEntry<String, Integer> listenAddress);
-
-    // public abstract SimpleEntry<Optional<Node>, Optional<Watch>> exists(String path);
-
-    // public abstract SimpleEntry<List<Node>, Optional<Watch>> getChildren(String path, boolean includeData);
-
     public abstract void registerSession(String sessionId, String sourceAddr, boolean heartbeat);
 
     public abstract void sendRequest(String requestId, Map <String, Object> data) throws Exception;
+
+    public abstract Node getData(String path) throws Exception;
 
     // public abstract Watch registerWatch(Node node, WatchType watchType, WatchCallbackType watch, SimpleEntry<String, Integer> listenAddress);
 

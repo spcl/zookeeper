@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.EventQueueItem;
+import org.apache.zookeeper.faaskeeper.model.ReadExceptionResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudDirectResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudExpectedResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudIndirectResult;
@@ -58,12 +59,13 @@ public class SorterThread implements Runnable {
 
                     EventQueueItem event = result.get();
 
-                    if (event instanceof CloudDirectResult<?>) {
-                        CloudDirectResult<?> directResult = (CloudDirectResult<?>) event;
+                    if (event instanceof CloudDirectResult) {
+                        CloudDirectResult directResult = (CloudDirectResult) event;
                         // TODO: Handle if result not none and result is instance of NodeType (ie Read ops)
 
-                        if (directResult.result instanceof Exception) {
-                            directResult.future.completeExceptionally((Exception) directResult.result);
+                        if (directResult.result instanceof ReadExceptionResult) {
+                            ReadExceptionResult res = (ReadExceptionResult) directResult.result;
+                            directResult.future.completeExceptionally(res.getException());
                         } else {
                             LOG.debug("Completing future...");
                             directResult.future.complete(directResult.result);

@@ -1,4 +1,4 @@
-package org.apache.zookeeper.faaskeeper.queue;
+package com.example.queue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -11,4 +11,3 @@ public class WatchNotification extends EventQueueItem {
         return EventType.WATCH_NOTIFICATION.getValue();
     }
 }
-

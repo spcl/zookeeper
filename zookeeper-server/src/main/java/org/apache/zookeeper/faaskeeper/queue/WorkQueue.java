@@ -31,8 +31,6 @@ public class WorkQueue {
         }
         try {
             queue.add(new WorkQueueItem<>(requestCount, op, future));
-            // TODO: remove this log
-            LOG.debug("Pushed item to workqueue");
             requestCount += 1;
         } catch(Exception e) {
             LOG.error("WorkQueue add item failed", e);

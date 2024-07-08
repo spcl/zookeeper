@@ -13,9 +13,19 @@ import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.WorkQueueItem;
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
+import org.apache.zookeeper.faaskeeper.provider.NodeDoesNotExist;
 import org.apache.zookeeper.faaskeeper.model.DirectOperation;
+import org.apache.zookeeper.faaskeeper.model.GetChildren;
 import org.apache.zookeeper.faaskeeper.model.RegisterSession;
+import org.apache.zookeeper.faaskeeper.model.GetData;
+import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.model.NodeExists;
+import org.apache.zookeeper.faaskeeper.model.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.model.RequestOperation;
+import org.apache.zookeeper.faaskeeper.model.GetDataResult;
+import org.apache.zookeeper.faaskeeper.model.GetChildrenResult;
+import org.apache.zookeeper.faaskeeper.model.RegisterSessionResult;
+import org.apache.zookeeper.faaskeeper.model.ReadExceptionResult;
 
 public class SubmitterThread implements Runnable {
     private Future<?> future;
@@ -69,26 +79,50 @@ public class SubmitterThread implements Runnable {
                 } else if (request.operation instanceof DirectOperation) {
                     String opName = request.operation.getName();
 
-                    if ("register_session".equals(opName)) {
-                        RegisterSession op = (RegisterSession) request.operation;
-                        providerClient.registerSession(op.getSessionId(), op.sourceAddr, op.heartbeat);
-                        eventQueue.addDirectResult(request.requestID, null, request.future);
+                    switch (opName) {
+                        case "register_session":
+                            RegisterSession reg_op = (RegisterSession) request.operation;
+                            providerClient.registerSession(reg_op.getSessionId(), reg_op.sourceAddr, reg_op.heartbeat);
+                            eventQueue.addDirectResult(request.requestID, new RegisterSessionResult(reg_op.getSessionId()), request.future);
+                            break;
 
-                    } else {
-                        LOG.error("Unknown op type: " + opName);
+                        case "get_data":
+                            GetData get_op = (GetData) request.operation;
+                            Node n = providerClient.getData(get_op.getPath());
+                            eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future);
+                            break;
+
+                        case "exists":
+                            try {
+                                NodeExists exists_op = (NodeExists) request.operation;
+                                n = providerClient.getData(exists_op.getPath());
+                                eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future);
+                            } catch (NodeDoesNotExist ex) {
+                                LOG.debug("Node does not exist");
+                                eventQueue.addDirectResult(request.requestID, new GetDataResult(null), request.future);
+                            }
+                            break;
+
+                        case "get_children":
+                            GetChildren get_ch_op = (GetChildren) request.operation;
+                            n = providerClient.getData(get_ch_op.getPath());
+                            eventQueue.addDirectResult(request.requestID, new GetChildrenResult(n.getChildren()), request.future);
+                            break;
+                        default:
+                            LOG.error("Unknown op type: " + opName);
+                            break;
                     }
                 } else {
                     LOG.error("Unknown request type: " + request.operation.getClass().getName());
                 }
 
             } catch (Exception e) {
-                LOG.error("Exception in processing WorkQueue events in submitter thread", e);
+                LOG.debug("Exception in processing WorkQueue events in submitter thread", e);
                 try {
-                    eventQueue.addDirectResult(request.requestID, e, request.future);
+                    eventQueue.addDirectResult(request.requestID, new ReadExceptionResult(e), request.future);
                 } catch (Exception ex) {
                     LOG.error("Fatal error in SubmitterThread. Failed in adding DirectResult to eventQueue: ", ex);
                 }
-                // TODO: Push exception to eventQueue
             }
         }
 

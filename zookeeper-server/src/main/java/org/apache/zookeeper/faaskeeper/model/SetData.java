@@ -88,4 +88,3 @@ public class SetData extends RequestOperation {
         encodedValue = val;
     }
 }
-

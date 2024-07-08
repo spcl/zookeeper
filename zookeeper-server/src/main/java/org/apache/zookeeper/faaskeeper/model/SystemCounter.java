@@ -1,13 +1,8 @@
 package org.apache.zookeeper.faaskeeper.model;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.List;
-import java.util.HashMap;
-import java.util.Optional;
-import java.util.ArrayList;
 import java.math.BigInteger;
-
 
 public class SystemCounter {
     private Map<String, Object> providerData;

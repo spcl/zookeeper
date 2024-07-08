@@ -1,13 +1,14 @@
 package org.apache.zookeeper.faaskeeper.queue;
 
+import org.apache.zookeeper.faaskeeper.model.ReadOpResult;
 import java.util.concurrent.CompletableFuture;
 
-public class CloudDirectResult<T> extends EventQueueItem {
+public class CloudDirectResult extends EventQueueItem {
     public final int requestID;
-    public final CompletableFuture<Object> future;
-    public final T result;
+    public final CompletableFuture<ReadOpResult> future;
+    public final ReadOpResult result;
 
-    public CloudDirectResult(int requestID, T result, CompletableFuture<Object> future) {
+    public CloudDirectResult(int requestID, ReadOpResult result, CompletableFuture<ReadOpResult> future) {
         super(null);
         this.requestID = requestID;
         this.future = future;
