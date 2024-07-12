@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 public class WatchNotification extends EventQueueItem {
     public WatchNotification(JsonNode result) {
-        super(result);
+        super();
     }
 
     public String getEventType() {

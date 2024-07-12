@@ -10,7 +10,7 @@ public class CloudExpectedResult extends EventQueueItem {
     public final RequestOperation op;
     public final CompletableFuture<Node> future;
     public CloudExpectedResult(int requestID, RequestOperation op, CompletableFuture<Node> future) {
-        super(null);
+        super();
         this.requestID = requestID;
         this.op = op;
         this.future = future;

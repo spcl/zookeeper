@@ -50,7 +50,6 @@ public class WorkQueue {
         closing = true;
     }
 
-    // TODO: Decide if waitClose is needed to be used anywhere
     public void waitClose(float timeout, float interval) throws TimeoutException {
         long start = System.currentTimeMillis();
         while(!queue.isEmpty() && System.currentTimeMillis() - start < timeout * 1000) {

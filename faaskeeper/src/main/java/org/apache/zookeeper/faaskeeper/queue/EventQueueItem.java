@@ -1,18 +1,14 @@
 package org.apache.zookeeper.faaskeeper.queue;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
-// TODO: Move JsonNode result to CloudIndirect reuslt. Its not needed in base class
 public abstract class EventQueueItem {
-    public JsonNode result;
     private long timestamp;
-
-    public EventQueueItem(JsonNode result) {
-        this.result = result;
-    }
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 }
 

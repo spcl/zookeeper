@@ -10,7 +10,7 @@ public class CloudDirectResult extends EventQueueItem {
     public final ReadOpResult result;
 
     public CloudDirectResult(int requestID, ReadOpResult result, CompletableFuture<ReadOpResult> future) {
-        super(null);
+        super();
         this.requestID = requestID;
         this.future = future;
         this.result = result;
