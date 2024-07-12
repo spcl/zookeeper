@@ -1,7 +1,9 @@
-package org.apache.zookeeper.faaskeeper.model;
+package org.apache.zookeeper.faaskeeper.operations;
 
 import java.util.Map;
 import java.util.HashMap;
+
+import org.apache.zookeeper.faaskeeper.model.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.CompletableFuture;

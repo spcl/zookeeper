@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.EventQueueItem;
-import org.apache.zookeeper.faaskeeper.model.ReadExceptionResult;
+import org.apache.zookeeper.faaskeeper.operations.ReadExceptionResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudDirectResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudExpectedResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudIndirectResult;

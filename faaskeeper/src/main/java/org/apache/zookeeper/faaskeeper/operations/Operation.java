@@ -1,4 +1,4 @@
-package org.apache.zookeeper.faaskeeper.model;
+package org.apache.zookeeper.faaskeeper.operations;
 /**
  * Abstract base class for all provider-agnostic operations submitted to FK instance.
  */

@@ -1,5 +1,7 @@
-package org.apache.zookeeper.faaskeeper.model;
+package org.apache.zookeeper.faaskeeper.operations;
 import java.util.Optional;
+
+import org.apache.zookeeper.faaskeeper.model.Node;
 
 public class GetDataResult extends ReadOpResult {
     private Optional<Node> node;

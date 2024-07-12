@@ -20,16 +20,16 @@ import java.util.concurrent.ExecutionException;
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
 import org.apache.zookeeper.faaskeeper.provider.AwsClient;
 import org.apache.zookeeper.faaskeeper.model.Node;
-import org.apache.zookeeper.faaskeeper.model.NodeExists;
-import org.apache.zookeeper.faaskeeper.model.ReadOpResult;
-import org.apache.zookeeper.faaskeeper.model.SetData;
-import org.apache.zookeeper.faaskeeper.model.GetData;
-import org.apache.zookeeper.faaskeeper.model.GetDataResult;
-import org.apache.zookeeper.faaskeeper.model.CreateNode;
-import org.apache.zookeeper.faaskeeper.model.DeleteNode;
-import org.apache.zookeeper.faaskeeper.model.GetChildren;
-import org.apache.zookeeper.faaskeeper.model.GetChildrenResult;
-import org.apache.zookeeper.faaskeeper.model.RegisterSession;
+import org.apache.zookeeper.faaskeeper.operations.CreateNode;
+import org.apache.zookeeper.faaskeeper.operations.DeleteNode;
+import org.apache.zookeeper.faaskeeper.operations.GetChildren;
+import org.apache.zookeeper.faaskeeper.operations.GetChildrenResult;
+import org.apache.zookeeper.faaskeeper.operations.GetData;
+import org.apache.zookeeper.faaskeeper.operations.GetDataResult;
+import org.apache.zookeeper.faaskeeper.operations.NodeExists;
+import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
+import org.apache.zookeeper.faaskeeper.operations.RegisterSession;
+import org.apache.zookeeper.faaskeeper.operations.SetData;
 
 public class FaasKeeperClient {
     private FaasKeeperConfig cfg;

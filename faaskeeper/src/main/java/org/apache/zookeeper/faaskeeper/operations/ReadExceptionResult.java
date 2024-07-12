@@ -1,4 +1,4 @@
-package org.apache.zookeeper.faaskeeper.model;
+package org.apache.zookeeper.faaskeeper.operations;
 
 public class ReadExceptionResult extends ReadOpResult {
     private Exception ex;

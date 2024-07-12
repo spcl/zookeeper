@@ -6,10 +6,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.apache.zookeeper.faaskeeper.operations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.apache.zookeeper.faaskeeper.model.Operation;
 
 public class WorkQueue {
     private static final Logger LOG;

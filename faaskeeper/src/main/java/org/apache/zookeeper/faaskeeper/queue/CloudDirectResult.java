@@ -1,7 +1,8 @@
 package org.apache.zookeeper.faaskeeper.queue;
 
-import org.apache.zookeeper.faaskeeper.model.ReadOpResult;
 import java.util.concurrent.CompletableFuture;
+
+import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 
 public class CloudDirectResult extends EventQueueItem {
     public final int requestID;

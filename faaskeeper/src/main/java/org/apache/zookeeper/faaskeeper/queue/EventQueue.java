@@ -11,9 +11,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.apache.zookeeper.faaskeeper.model.RequestOperation;
 import org.apache.zookeeper.faaskeeper.model.Node;
-import org.apache.zookeeper.faaskeeper.model.ReadOpResult;
+import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
+import org.apache.zookeeper.faaskeeper.operations.RequestOperation;
 
 public class EventQueue {
     private static final Logger LOG;

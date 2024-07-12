@@ -1,4 +1,4 @@
-package org.apache.zookeeper.faaskeeper.model;
+package org.apache.zookeeper.faaskeeper.operations;
 
 import java.util.Map;
 import java.math.BigInteger;
@@ -6,6 +6,10 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+
+import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.model.SystemCounter;
+import org.apache.zookeeper.faaskeeper.model.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.CompletableFuture;

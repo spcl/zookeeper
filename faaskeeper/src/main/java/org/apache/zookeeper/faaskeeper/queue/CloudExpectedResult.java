@@ -1,8 +1,9 @@
 package org.apache.zookeeper.faaskeeper.queue;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.zookeeper.faaskeeper.model.RequestOperation;
+
 import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.operations.RequestOperation;
 
 public class CloudExpectedResult extends EventQueueItem {
     public final int requestID;

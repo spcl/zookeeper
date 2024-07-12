@@ -1,4 +1,4 @@
-package org.apache.zookeeper.faaskeeper.model;
+package org.apache.zookeeper.faaskeeper.operations;
 
 public class RegisterSession extends DirectOperation {
     public final String sourceAddr;
