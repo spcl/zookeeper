@@ -3,6 +3,7 @@ package org.apache.zookeeper.faaskeeper.operations;
 import java.util.Map;
 import java.util.List;
 
+import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
@@ -22,17 +23,17 @@ public class CreateNode extends RequestOperation {
         LOG = LoggerFactory.getLogger(CreateNode.class);
     }
 
-    public CreateNode(String sessionId, String path, byte[] value, int flags) {
-        super(sessionId, path);
+    public CreateNode(String sessionId, String path, byte[] value, int flags, AsyncCallback cb, Object callbackCtx) {
+        super(sessionId, path, cb, callbackCtx);
         this.value = value;
         this.flags = flags;
     }
 
-    public CreateNode(Map<String, Object> data) {
-        super(data);
-        this.value = (byte[]) data.get("data");
-        this.flags = (int) data.get("flags");
-    }
+    // public CreateNode(Map<String, Object> data) {
+    //     super(data);
+    //     this.value = (byte[]) data.get("data");
+    //     this.flags = (int) data.get("flags");
+    // }
 
     public Map<String, Object> generateRequest() {
         Map<String, Object> requestData = new HashMap<>();

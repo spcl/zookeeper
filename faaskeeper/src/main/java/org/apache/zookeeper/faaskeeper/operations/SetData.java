@@ -7,6 +7,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
@@ -24,8 +25,8 @@ public class SetData extends RequestOperation {
         LOG = LoggerFactory.getLogger(SetData.class);
     }
 
-    public SetData(String sessionId, String path, byte[] value, int version) {
-        super(sessionId, path);
+    public SetData(String sessionId, String path, byte[] value, int version, AsyncCallback cb, Object callbackCtx) {
+        super(sessionId, path, cb, callbackCtx);
         this.value = value;
         this.version = version;
         this.encodedValue = Base64.getEncoder().encodeToString(value);

@@ -17,7 +17,7 @@ public class DeleteNode extends RequestOperation {
     }
 
     public DeleteNode(String sessionId, String path, int version) {
-        super(sessionId, path);
+        super(sessionId, path, null, null);
         this.version = version;
     }
 

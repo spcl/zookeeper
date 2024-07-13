@@ -54,5 +54,10 @@
       <artifactId>zookeeper-jute</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.zookeeper</groupId>
+      <artifactId>zookeeper</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 </project>

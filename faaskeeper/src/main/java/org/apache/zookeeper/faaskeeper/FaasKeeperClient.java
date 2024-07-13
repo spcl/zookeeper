@@ -13,6 +13,7 @@ import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
 import org.apache.zookeeper.faaskeeper.thread.SorterThread;
 import org.apache.zookeeper.faaskeeper.thread.SqsListener;
 import org.apache.zookeeper.faaskeeper.thread.SubmitterThread;
+import org.apache.zookeeper.server.EphemeralType;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -31,6 +32,13 @@ import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.operations.RegisterSession;
 import org.apache.zookeeper.faaskeeper.operations.SetData;
 
+import org.apache.zookeeper.AsyncCallback.StringCallback;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.data.ACL;
+import org.apache.zookeeper.client.Chroot;
+import org.apache.zookeeper.common.PathUtils;
+
+
 public class FaasKeeperClient {
     private FaasKeeperConfig cfg;
     private boolean heartbeat = true;
@@ -42,6 +50,7 @@ public class FaasKeeperClient {
     private EventQueue eventQueue;
     private WorkQueue workQueue;
     private static Map<String, Class<? extends ProviderClient>> providers = new HashMap<>();
+    private final Chroot chroot;
     private static final Logger LOG;
     static {
         LOG = LoggerFactory.getLogger(FaasKeeperClient.class);
@@ -56,10 +65,15 @@ public class FaasKeeperClient {
             this.providerClient = providerClass.getDeclaredConstructor(FaasKeeperConfig.class).newInstance(this.cfg);
             this.eventQueue = new EventQueue();
             this.workQueue = new WorkQueue();
+            this.chroot = Chroot.ofNullable(cfg.getChrootPath());
         } catch (Exception e) {
             LOG.error("Error in initializing provider client", e);
             throw new RuntimeException("Error in initializing provider client", e);
         }
+    }
+
+    private String prependChroot(String clientPath) {
+        return chroot.prepend(clientPath);
     }
 
     public String start() throws Exception {
@@ -100,8 +114,27 @@ public class FaasKeeperClient {
         }
     }
 
+    public void create(
+        final String path,
+        byte[] data,
+        List<ACL> acl,
+        CreateMode createMode,
+        StringCallback cb,
+        Object ctx) {
+            final String clientPath = path;
+            PathUtils.validatePath(clientPath, createMode.isSequential());
+            EphemeralType.validateTTL(createMode, -1);
+
+            final String serverPath = prependChroot(clientPath);
+            cb = chroot.interceptCallback(cb);
+
+            CreateNode requestOp = new CreateNode(sessionId, serverPath, data, createMode.toFlag(), cb, ctx);
+
+    }
+
+    // TODO: Make createSync and createAsync private funcs once ZK compatible functions are implemented
     // flags represents createmode in its bit representation
-    public String create(String path, byte[] value, int flags) throws Exception {
+    public String createSync(String path, byte[] value, int flags) throws Exception {
         CompletableFuture<Node> future = createAsync(path, value, flags);
         Node n = future.get();
         return n.getPath();
@@ -111,13 +144,13 @@ public class FaasKeeperClient {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
-        CreateNode requestOp = new CreateNode(sessionId, path, value, flags);
+        CreateNode requestOp = new CreateNode(sessionId, path, value, flags, null, null);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
         return future;
     }
 
-    public Node setData(String path, byte[] value, int version) throws Exception {
+    public Node setDataSync(String path, byte[] value, int version) throws Exception {
         CompletableFuture<Node> future = setDataAsync(path, value, version);
         return future.get();
     }
@@ -126,48 +159,15 @@ public class FaasKeeperClient {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
-        SetData requestOp = new SetData(sessionId, path, value, version);
+        SetData requestOp = new SetData(sessionId, path, value, version, null, null);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
         return future;
     }
 
-    public void delete(String path, int version) throws Exception {
+    public void deleteSync(String path, int version) throws Exception {
         CompletableFuture<Node> future = deleteAsync(path, version);
         future.get();
-    }
-
-    public CompletableFuture<GetDataResult> getDataAsync(String path) throws Exception {
-        CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
-        GetData requestOp = new GetData(sessionId, path, null);
-        workQueue.addRequest(requestOp, future);
-        return future;
-    }
-
-    public Node getData(String path) throws Exception {
-        return getDataAsync(path).get().getNode().get();
-    }
-
-    public CompletableFuture<GetChildrenResult> getChildrenAsync(String path) throws Exception {
-        CompletableFuture<GetChildrenResult> future = new CompletableFuture<GetChildrenResult>();
-        GetChildren requestOp = new GetChildren(sessionId, path, null);
-        workQueue.addRequest(requestOp, future);
-        return future;
-    }
-
-    public List<String> getChildren(String path) throws Exception {
-        return getChildrenAsync(path).get().getChildren();
-    }
-
-    public CompletableFuture<GetDataResult> existsAsync(String path) throws Exception {
-        CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
-        NodeExists requestOp = new NodeExists(sessionId, path, null);
-        workQueue.addRequest(requestOp, future);
-        return future;
-    }
-
-    public Node exists(String path) throws Exception {
-       return existsAsync(path).get().getNode().orElse(null);
     }
 
     public CompletableFuture<Node> deleteAsync(String path, int version) throws Exception {
@@ -180,4 +180,36 @@ public class FaasKeeperClient {
         return future;
     }
 
+    public Node getDataSync(String path) throws Exception {
+        return getDataAsync(path).get().getNode().get();
+    }
+
+    public CompletableFuture<GetDataResult> getDataAsync(String path) throws Exception {
+        CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
+        GetData requestOp = new GetData(sessionId, path, null);
+        workQueue.addRequest(requestOp, future);
+        return future;
+    }
+
+    public List<String> getChildrenSync(String path) throws Exception {
+        return getChildrenAsync(path).get().getChildren();
+    }
+
+    public CompletableFuture<GetChildrenResult> getChildrenAsync(String path) throws Exception {
+        CompletableFuture<GetChildrenResult> future = new CompletableFuture<GetChildrenResult>();
+        GetChildren requestOp = new GetChildren(sessionId, path, null);
+        workQueue.addRequest(requestOp, future);
+        return future;
+    }
+
+    public Node existsSync(String path) throws Exception {
+        return existsAsync(path).get().getNode().orElse(null);
+    }
+
+    public CompletableFuture<GetDataResult> existsAsync(String path) throws Exception {
+        CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
+        NodeExists requestOp = new NodeExists(sessionId, path, null);
+        workQueue.addRequest(requestOp, future);
+        return future;
+    }
 }

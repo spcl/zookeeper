@@ -3,7 +3,7 @@ package org.apache.zookeeper.faaskeeper.operations;
 public class GetData extends DirectOperation {
 
     public GetData(String sessionID, String path, Object watch) {
-        super(sessionID, path, null);
+        super(sessionID, path, null, null, null);
     }
 
     public String getName() {

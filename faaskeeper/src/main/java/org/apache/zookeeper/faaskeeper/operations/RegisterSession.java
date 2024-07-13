@@ -5,7 +5,7 @@ public class RegisterSession extends DirectOperation {
     public final boolean heartbeat;
 
     public RegisterSession(String sessionID, String sourceAddr, boolean heartbeat) {
-        super(sessionID, "", null);
+        super(sessionID, "", null, null, null);
         this.sourceAddr = sourceAddr;
         this.heartbeat = heartbeat;
     }

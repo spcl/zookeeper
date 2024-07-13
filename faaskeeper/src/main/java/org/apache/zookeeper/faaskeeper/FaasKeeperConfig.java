@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
+import org.apache.zookeeper.client.ConnectStringParser;
 import org.apache.zookeeper.faaskeeper.model.QueueType;
 
 enum StorageType {
@@ -82,6 +83,7 @@ public class FaasKeeperConfig {
     private QueueType writerQueue;
     private AWSConfig providerCfg;
     private ClientChannel clientChannel;
+    private String chrootPath;
 
     public int getPort() {
         return port;
@@ -123,6 +125,10 @@ public class FaasKeeperConfig {
         return clientChannel;
     }
 
+    public String getChrootPath() {
+        return chrootPath;
+    }
+
     public static FaasKeeperConfig buildFromConfigJson(String configFilePath) throws IOException, JsonProcessingException, Exception {
         String content = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(configFilePath)));
         FaasKeeperConfig cfg = FaasKeeperConfig.deserialize(content);
@@ -134,11 +140,6 @@ public class FaasKeeperConfig {
     public static FaasKeeperConfig deserialize(String jsonString) throws JsonProcessingException, Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode rootNode = objectMapper.readTree(jsonString);
-
-        // Benchmarking config not used currently
-        // JsonNode configurationNode = rootNode.get("configuration");
-        // boolean benchmarking = configurationNode.get("benchmarking").asText().equals("True");
-        // int benchmarkingFrequency = configurationNode.get("benchmarking-frequency").asInt();
 
         FaasKeeperConfig cfg = new FaasKeeperConfig();
         
@@ -185,6 +186,15 @@ public class FaasKeeperConfig {
             throw new UnsupportedOperationException("Provider not supported");
         }
 
+        JsonNode chrootNode = rootNode.get("chroot");
+        cfg.chrootPath = chrootNode != null ? validateChroot(chrootNode.asText()) : null;
+
         return cfg;
+    }
+
+    private static String validateChroot(String chroot) {
+        // Passing a dummy IP to use the ZK method for validation
+        ConnectStringParser connectStringParser = new ConnectStringParser("127.0.0.1:8080" + chroot);
+        return connectStringParser.getChrootPath();
     }
 }
