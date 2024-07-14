@@ -8,8 +8,8 @@ public abstract class DirectOperation extends Operation {
     // TODO: define watch datatype
     private Object watch;
     
-    public DirectOperation(String sessionId, String path, Object watch, AsyncCallback cb, Object callbackCtx) {
-        super(sessionId, path, cb, callbackCtx);
+    public DirectOperation(String sessionId, String path, Object watch) {
+        super(sessionId, path);
         // TODO: Use actual value
         watch = null;
 

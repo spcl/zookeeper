@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.List;
 
 import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
@@ -23,8 +24,9 @@ public class CreateNode extends RequestOperation {
         LOG = LoggerFactory.getLogger(CreateNode.class);
     }
 
-    public CreateNode(String sessionId, String path, byte[] value, int flags, AsyncCallback cb, Object callbackCtx) {
-        super(sessionId, path, cb, callbackCtx);
+    // TODO: Reduce args in constructor to 0 and use setter getter methods instead
+    public CreateNode(String sessionId, String path, byte[] value, int flags) {
+        super(sessionId, path);
         this.value = value;
         this.flags = flags;
     }
@@ -63,6 +65,14 @@ public class CreateNode extends RequestOperation {
                 } else {
                     throw new IllegalStateException("System counter data is not an array");
                 }
+
+                if (this.cb != null) {
+                    if (this.cb instanceof AsyncCallback.StringCallback) {
+                        LOG.debug("Invoking createNode string callback");
+                        // TODO Handle this case: If node is sequential, then Znode Path and Znode Name will be diff
+                        ((AsyncCallback.StringCallback)this.cb).processResult(Code.OK.intValue(), n.getPath(), this.callbackCtx, n.getPath());
+                    }
+                }
                 future.complete(n);
             } catch (Exception e) {
                 LOG.error("Error processing result: " + result.toString(), e);
@@ -70,18 +80,29 @@ public class CreateNode extends RequestOperation {
             }
         } else {
             String reason = result.get("reason") != null ? result.get("reason").asText() : "";
+            int errorCode;
             switch (reason) {
                 case "node_exists":
+                    errorCode = Code.NODEEXISTS.intValue();
                     future.completeExceptionally(new RuntimeException("Node already exists: " + result.get("path").asText()));
                     break;
                 case "node_doesnt_exist":
+                    errorCode = Code.NONODE.intValue();
                     future.completeExceptionally(new RuntimeException("Node does not exist: " + result.get("path").asText()));
                     break;
                 case "update_not_committed":
+                    errorCode = Code.SYSTEMERROR.intValue();
                     future.completeExceptionally(new RuntimeException("Update could not be applied"));
                     break;
                 default:
+                    errorCode = Code.SYSTEMERROR.intValue();
+                    LOG.error("Unknown error type in create node: " + reason);
                     future.completeExceptionally(new RuntimeException("Unknown error occurred: " + reason));
+            }
+
+            if (this.cb != null) {
+                LOG.debug("Invoking createNode string callback");
+                ((AsyncCallback.StringCallback)this.cb).processResult(errorCode, this.getPath(), this.callbackCtx, null);
             }
         }
     }

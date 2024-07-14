@@ -120,7 +120,7 @@ public class FaasKeeperClient {
         List<ACL> acl,
         CreateMode createMode,
         StringCallback cb,
-        Object ctx) {
+        Object ctx) throws Exception {
             final String clientPath = path;
             PathUtils.validatePath(clientPath, createMode.isSequential());
             EphemeralType.validateTTL(createMode, -1);
@@ -128,8 +128,10 @@ public class FaasKeeperClient {
             final String serverPath = prependChroot(clientPath);
             cb = chroot.interceptCallback(cb);
 
-            CreateNode requestOp = new CreateNode(sessionId, serverPath, data, createMode.toFlag(), cb, ctx);
+            CreateNode requestOp = new CreateNode(sessionId, serverPath, data, createMode.toFlag());
+            requestOp.setCallback(cb, ctx);
 
+            workQueue.addRequest(requestOp, new CompletableFuture<Node>());
     }
 
     // TODO: Make createSync and createAsync private funcs once ZK compatible functions are implemented
@@ -144,7 +146,7 @@ public class FaasKeeperClient {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
-        CreateNode requestOp = new CreateNode(sessionId, path, value, flags, null, null);
+        CreateNode requestOp = new CreateNode(sessionId, path, value, flags);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
         return future;
@@ -159,7 +161,7 @@ public class FaasKeeperClient {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
-        SetData requestOp = new SetData(sessionId, path, value, version, null, null);
+        SetData requestOp = new SetData(sessionId, path, value, version);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
         return future;

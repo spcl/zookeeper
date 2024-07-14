@@ -25,8 +25,8 @@ public class SetData extends RequestOperation {
         LOG = LoggerFactory.getLogger(SetData.class);
     }
 
-    public SetData(String sessionId, String path, byte[] value, int version, AsyncCallback cb, Object callbackCtx) {
-        super(sessionId, path, cb, callbackCtx);
+    public SetData(String sessionId, String path, byte[] value, int version) {
+        super(sessionId, path);
         this.value = value;
         this.version = version;
         this.encodedValue = Base64.getEncoder().encodeToString(value);

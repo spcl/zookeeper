@@ -11,9 +11,12 @@ public abstract class Operation {
     protected Object callbackCtx;
     protected AsyncCallback cb;
 
-    public Operation(String sessionId, String path, AsyncCallback cb, Object callbackCtx) {
+    public Operation(String sessionId, String path) {
         this.sessionId = sessionId;
         this.path = path;
+    }
+
+    public void setCallback(AsyncCallback cb, Object callbackCtx) {
         this.cb = cb;
         this.callbackCtx = callbackCtx;
     }
