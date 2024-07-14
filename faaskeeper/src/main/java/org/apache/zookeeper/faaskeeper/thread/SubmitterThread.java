@@ -57,26 +57,33 @@ public class SubmitterThread implements Runnable {
     public void run() {
         while(running) {
 
-            Optional<WorkQueueItem> result = workQueue.get();
+            Optional<WorkQueueItem> result;
+            WorkQueueItem request;
+
+            result = workQueue.get();
             if (!result.isPresent()) {
                 // TODO: Remove this LOG later
                 LOG.debug("work queue empty");
                 continue;
             }
 
-            WorkQueueItem request = result.get();
+            request = result.get();
 
-            try {
-
-                if (request.operation instanceof RequestOperation) {
+            if (request.operation instanceof RequestOperation) {
+                try {
                     LOG.debug("Adding expected result to eventQueue");
                     RequestOperation op = (RequestOperation) request.operation;
                     eventQueue.addExpectedResult(request.requestID, op, request.future);
 
                     LOG.debug("Sending create req to providerClient");
                     providerClient.sendRequest(sessionID + "-" + String.valueOf(request.requestID), op.generateRequest());
+                } catch (Exception ex) { // Provider exception
+                    // TODO VERY IMPORTANT: Push Direct error result to queue
+                    LOG.error("Provider exception:", ex);
+                }
 
-                } else if (request.operation instanceof DirectOperation) {
+            } else if (request.operation instanceof DirectOperation) {
+                try {
                     String opName = request.operation.getName();
 
                     switch (opName) {
@@ -111,18 +118,17 @@ public class SubmitterThread implements Runnable {
                         default:
                             LOG.error("Unknown op type: " + opName);
                             break;
+                    } 
+                } catch (Exception e) {
+                    LOG.debug("Exception in processing WorkQueue events in submitter thread", e);
+                    try {
+                        eventQueue.addDirectResult(request.requestID, new ReadExceptionResult(e), request.future);
+                    } catch (Exception ex) {
+                        LOG.error("Fatal error in SubmitterThread. Failed in adding DirectResult to eventQueue: ", ex);
                     }
-                } else {
-                    LOG.error("Unknown request type: " + request.operation.getClass().getName());
                 }
-
-            } catch (Exception e) {
-                LOG.debug("Exception in processing WorkQueue events in submitter thread", e);
-                try {
-                    eventQueue.addDirectResult(request.requestID, new ReadExceptionResult(e), request.future);
-                } catch (Exception ex) {
-                    LOG.error("Fatal error in SubmitterThread. Failed in adding DirectResult to eventQueue: ", ex);
-                }
+            } else {
+                LOG.error("Unknown request type: " + request.operation.getClass().getName());
             }
         }
 

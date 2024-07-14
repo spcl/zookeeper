@@ -55,6 +55,7 @@ public class CreateNode extends RequestOperation {
         if ("success".equals(status)) {
             try {
                 Node n = new Node(result.get("path").asText());
+
                 JsonNode sysCounterNode = result.get("system_counter");
                 if (sysCounterNode.isArray()) {
                     List<BigInteger> sysCounter = new ArrayList<>();
@@ -66,11 +67,17 @@ public class CreateNode extends RequestOperation {
                     throw new IllegalStateException("System counter data is not an array");
                 }
 
+                n.setData(this.value);
+
                 if (this.cb != null) {
                     if (this.cb instanceof AsyncCallback.StringCallback) {
                         LOG.debug("Invoking createNode string callback");
                         // TODO Handle this case: If node is sequential, then Znode Path and Znode Name will be diff
-                        ((AsyncCallback.StringCallback)this.cb).processResult(Code.OK.intValue(), n.getPath(), this.callbackCtx, n.getPath());
+                        ((AsyncCallback.StringCallback)this.cb).processResult(Code.OK.intValue(), this.getPath(), this.callbackCtx, n.getPath());
+                    } else if (this.cb instanceof AsyncCallback.Create2Callback) {
+                        LOG.debug("Invoking createNode Create2Callback");
+
+                        ((AsyncCallback.Create2Callback)this.cb).processResult(Code.OK.intValue(), this.getPath(), this.callbackCtx, n.getPath(), null);
                     }
                 }
                 future.complete(n);
@@ -101,8 +108,13 @@ public class CreateNode extends RequestOperation {
             }
 
             if (this.cb != null) {
-                LOG.debug("Invoking createNode string callback");
-                ((AsyncCallback.StringCallback)this.cb).processResult(errorCode, this.getPath(), this.callbackCtx, null);
+                if (this.cb instanceof AsyncCallback.StringCallback) {
+                    LOG.debug("Invoking createNode string callback");
+                    ((AsyncCallback.StringCallback)this.cb).processResult(errorCode, this.getPath(), this.callbackCtx, null);
+                } else if (this.cb instanceof AsyncCallback.Create2Callback) {
+                    LOG.debug("Invoking createNode Create2Callback");
+                    ((AsyncCallback.Create2Callback)this.cb).processResult(Code.OK.intValue(), this.getPath(), this.callbackCtx, null, null);
+                }
             }
         }
     }

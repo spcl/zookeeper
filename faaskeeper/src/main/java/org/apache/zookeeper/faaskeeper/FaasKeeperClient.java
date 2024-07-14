@@ -31,10 +31,12 @@ import org.apache.zookeeper.faaskeeper.operations.NodeExists;
 import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.operations.RegisterSession;
 import org.apache.zookeeper.faaskeeper.operations.SetData;
-
+import org.apache.zookeeper.AsyncCallback.Create2Callback;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.ACL;
+import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.client.Chroot;
 import org.apache.zookeeper.common.PathUtils;
 
@@ -114,6 +116,84 @@ public class FaasKeeperClient {
         }
     }
 
+    // TODO for create API: Implement all types of Znode: Sequential, Ephemeral, Container etc
+    // TODO: Throw unimplemented exceptions for Znode types not implemented yet / Non null ACL passed
+    public String create(
+        final String path,
+        byte[] data,
+        List<ACL> acl,
+        CreateMode createMode) throws Exception {
+            if (!createMode.equals(CreateMode.PERSISTENT)) {
+                throw new UnsupportedOperationException("This method is unimplemented");
+            }
+
+            final String clientPath = path;
+            PathUtils.validatePath(clientPath, createMode.isSequential());
+            EphemeralType.validateTTL(createMode, -1);
+
+            final String serverPath = prependChroot(clientPath);
+
+            return chroot.strip(createSync(serverPath, data, createMode.toFlag()).getPath());
+    }
+
+    public String create(
+        final String path,
+        byte[] data,
+        List<ACL> acl,
+        CreateMode createMode,
+        Stat stat) throws Exception {
+        return create(path, data, acl, createMode, stat, -1);
+    }
+
+    private void updateStat(Stat stat, Node n, CreateMode createMode) throws Exception {
+        // TODO: Update stat value (cxzid, mzxid) once FK ID length reduction is implemented
+
+        if (createMode.isEphemeral()) {
+        // TODO: set ephemeral owner to sessionID but sessionID is a String
+        // TODO: change sessionID to integer. Will have to implement this to support Ephemeral Znodes
+        } else {
+            stat.setEphemeralOwner(0);
+        }
+
+        if (n.hasChildren()) {
+            stat.setNumChildren(n.getChildren().size());
+        } else {
+            stat.setNumChildren(0);
+        }
+
+        if (n.hasData()) {
+            stat.setDataLength(n.getData().length);
+        } else {
+            stat.setDataLength(0);
+        }
+
+    }
+
+    public String create(
+        final String path,
+        byte[] data,
+        List<ACL> acl,
+        CreateMode createMode,
+        Stat stat,
+        long ttl) throws Exception {
+            if (ttl != -1 || !createMode.equals(CreateMode.PERSISTENT)) {
+                throw new UnsupportedOperationException("This method is unimplemented");
+            }
+
+            final String clientPath = path;
+            PathUtils.validatePath(clientPath, createMode.isSequential());
+            EphemeralType.validateTTL(createMode, ttl);
+    
+            final String serverPath = prependChroot(clientPath);
+
+            Node n = createSync(serverPath, data, createMode.toFlag());
+
+            updateStat(stat, n, createMode);
+
+            return chroot.strip(n.getPath());
+    }
+
+    // The asynchronous version of create
     public void create(
         final String path,
         byte[] data,
@@ -121,6 +201,47 @@ public class FaasKeeperClient {
         CreateMode createMode,
         StringCallback cb,
         Object ctx) throws Exception {
+            if (!createMode.equals(CreateMode.PERSISTENT)) {
+                throw new UnsupportedOperationException("This method is unimplemented");
+            }
+
+            final String clientPath = path;
+            PathUtils.validatePath(clientPath, createMode.isSequential());
+            EphemeralType.validateTTL(createMode, -1);
+
+            final String serverPath = prependChroot(clientPath);
+            cb = chroot.interceptCallback(cb);
+
+            CreateNode requestOp = new CreateNode(sessionId, serverPath, data, createMode.toFlag());
+            requestOp.setCallback(cb, ctx);
+
+            workQueue.addRequest(requestOp, new CompletableFuture<Node>());
+    }
+
+    // The asynchronous version of create
+    public void create(
+    final String path,
+    byte[] data,
+    List<ACL> acl,
+    CreateMode createMode,
+    Create2Callback cb,
+    Object ctx) throws Exception {
+        create(path, data, acl, createMode, cb, ctx, -1);
+    }
+
+    // The asynchronous version of create
+    public void create(
+        final String path,
+        byte[] data,
+        List<ACL> acl,
+        CreateMode createMode,
+        Create2Callback cb,
+        Object ctx,
+        long ttl) throws Exception {
+            if (ttl != -1 || !createMode.equals(CreateMode.PERSISTENT)) {
+                throw new UnsupportedOperationException("This method is unimplemented");
+            }
+
             final String clientPath = path;
             PathUtils.validatePath(clientPath, createMode.isSequential());
             EphemeralType.validateTTL(createMode, -1);
@@ -136,10 +257,10 @@ public class FaasKeeperClient {
 
     // TODO: Make createSync and createAsync private funcs once ZK compatible functions are implemented
     // flags represents createmode in its bit representation
-    public String createSync(String path, byte[] value, int flags) throws Exception {
+    public Node createSync(String path, byte[] value, int flags) throws Exception {
         CompletableFuture<Node> future = createAsync(path, value, flags);
         Node n = future.get();
-        return n.getPath();
+        return n;
     }
 
     public CompletableFuture<Node> createAsync(String path, byte[] value, int flags) throws Exception {
