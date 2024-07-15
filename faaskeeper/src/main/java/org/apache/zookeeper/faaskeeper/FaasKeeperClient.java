@@ -145,7 +145,7 @@ public class FaasKeeperClient {
         return create(path, data, acl, createMode, stat, -1);
     }
 
-    private void updateStat(Stat stat, Node n, CreateMode createMode) throws Exception {
+    public static void updateStat(Stat stat, Node n, CreateMode createMode) throws Exception {
         // TODO: Update stat value (cxzid, mzxid) once FK ID length reduction is implemented
 
         if (createMode.isEphemeral()) {

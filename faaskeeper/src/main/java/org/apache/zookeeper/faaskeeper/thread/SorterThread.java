@@ -82,6 +82,7 @@ public class SorterThread implements Runnable {
                         if (futures.isEmpty()) {
                             LOG.error(String.format("Ignoring the result: %s with req_id: %d due to non-existent future",
                                 indirectResult.result.toString(), reqID));
+                            continue;
                         }
 
                         CloudExpectedResult expectedResult = futures.remove();

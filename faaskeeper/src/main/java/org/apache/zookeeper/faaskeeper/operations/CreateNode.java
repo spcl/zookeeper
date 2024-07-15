@@ -4,7 +4,10 @@ import java.util.Map;
 import java.util.List;
 
 import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException.Code;
+import org.apache.zookeeper.data.Stat;
+import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
@@ -77,7 +80,10 @@ public class CreateNode extends RequestOperation {
                     } else if (this.cb instanceof AsyncCallback.Create2Callback) {
                         LOG.debug("Invoking createNode Create2Callback");
 
-                        ((AsyncCallback.Create2Callback)this.cb).processResult(Code.OK.intValue(), this.getPath(), this.callbackCtx, n.getPath(), null);
+                        Stat stat = new Stat();
+                        FaasKeeperClient.updateStat(stat, n, CreateMode.fromFlag(this.flags));
+                        
+                        ((AsyncCallback.Create2Callback)this.cb).processResult(Code.OK.intValue(), this.getPath(), this.callbackCtx, n.getPath(), stat);
                     }
                 }
                 future.complete(n);
