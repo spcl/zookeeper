@@ -3,6 +3,8 @@ package org.apache.zookeeper.faaskeeper.operations;
 import java.util.Map;
 import java.util.HashMap;
 
+import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,8 @@ public class DeleteNode extends RequestOperation {
     public void processResult(JsonNode result, CompletableFuture<Node> future) {
         LOG.debug("Processing res: " + result.toString());
 
+        int rc = Code.OK.intValue();
+
         if ("success".equals(result.get("status").asText())) {
             future.complete(null);
         } else {
@@ -41,20 +45,29 @@ public class DeleteNode extends RequestOperation {
             switch (reason) {
                 case "update_failure":
                     future.completeExceptionally(new RuntimeException("Update failure"));
+                    rc = Code.SYSTEMERROR.intValue();
                     break;
                 case "node_doesnt_exist":
                     future.completeExceptionally(new RuntimeException("Node doesn't exist"));
+                    rc = Code.NONODE.intValue();
                     break;
                 case "update_not_committed":
                     future.completeExceptionally(new RuntimeException("Update could not be applied"));
+                    rc = Code.SYSTEMERROR.intValue();
                     break;
                 case "not_empty":
                     future.completeExceptionally(new RuntimeException("Node is not empty"));
+                    rc = Code.NOTEMPTY.intValue();
                     break;
                 default:
                     future.completeExceptionally(new RuntimeException("Unknown error: " + reason));
+                    rc = Code.SYSTEMERROR.intValue();
                     break;
             }
+        }
+
+        if (this.cb != null) {
+            ((AsyncCallback.VoidCallback)this.cb).processResult(rc, this.getPath(), this.callbackCtx);
         }
     }
 

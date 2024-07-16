@@ -33,6 +33,7 @@ import org.apache.zookeeper.faaskeeper.operations.RegisterSession;
 import org.apache.zookeeper.faaskeeper.operations.SetData;
 import org.apache.zookeeper.AsyncCallback.Create2Callback;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
+import org.apache.zookeeper.AsyncCallback.VoidCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.ACL;
@@ -168,7 +169,7 @@ public class FaasKeeperClient {
         }
 
     }
-
+    // TODO: Add session ID check to every ZK API
     public String create(
         final String path,
         byte[] data,
@@ -272,6 +273,53 @@ public class FaasKeeperClient {
         workQueue.addRequest(requestOp, future);
         return future;
     }
+
+    public void delete(final String path, int version) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        final String serverPath;
+
+        // maintain semantics even in chroot case
+        // specifically - root cannot be deleted
+        // I think this makes sense even in chroot case.
+        if (clientPath.equals("/")) {
+            // a bit of a hack, but delete(/) will never succeed and ensures
+            // that the same semantics are maintained
+            serverPath = clientPath;
+        } else {
+            serverPath = prependChroot(clientPath);
+        }
+
+        deleteSync(serverPath, version);
+    }
+
+    /*
+     * The asynchronous version of delete.
+    */
+    public void delete(final String path, int version, VoidCallback cb, Object ctx) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        final String serverPath;
+
+        // maintain semantics even in chroot case
+        // specifically - root cannot be deleted
+        // I think this makes sense even in chroot case.
+        if (clientPath.equals("/")) {
+            // a bit of a hack, but delete(/) will never succeed and ensures
+            // that the same semantics are maintained
+            serverPath = clientPath;
+        } else {
+            serverPath = prependChroot(clientPath);
+        }
+
+        DeleteNode requestOp = new DeleteNode(sessionId, path, version);
+        requestOp.setCallback(cb, ctx);
+        
+        workQueue.addRequest(requestOp, new CompletableFuture<Node>());
+    }
+
 
     public Node setDataSync(String path, byte[] value, int version) throws Exception {
         CompletableFuture<Node> future = setDataAsync(path, value, version);

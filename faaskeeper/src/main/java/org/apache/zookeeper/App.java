@@ -207,7 +207,7 @@ public class App {
             .build();
 
         add_session(ddb, tableName, "user", user, "source_addr", sourceAddress);
-        deleteSession(ddb, tableName, "user", user);
+        testDeleteSession(ddb, tableName, "user", user);
 
         System.out.println("Done!");
         ddb.close();
