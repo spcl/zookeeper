@@ -52,11 +52,13 @@ public class App {
             String filePath = "/Users/syed/Desktop/gsoc/java-testbed/test-config.json";
             FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false, null);
             client.start();
-            // testFK();
-            // testZKDelete(client, "/test-node-syed-dev-2");
-            testZKExists(client, "/test-node-syed-dev-2");
-            testZKExists(client, "/");
+            String newNode = "/test-node-1";
 
+            testZKCreate(client, newNode);
+            testZKExists(client, newNode);
+            testZKExists(client, "/");
+            testZKDelete(client, newNode);
+            
             client.stop();
         } catch (Exception e) {
             System.out.println(e);
@@ -135,84 +137,6 @@ public class App {
         Thread.sleep(10000);
     }
 
-    public static void testFK() throws Exception {
-        String filePath = "/Users/syed/Desktop/gsoc/java-testbed/test-config.json";
-        FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false, null);
-        client.start();
-        byte[] data = {1, 2, 3, 4, 5, 6};
-        String res = "";
-        String nodePath = "/";//"/test-node-syed-dev-0";
-        // try {
-            // res = client.create(nodePath, data, 0);
-            // System.out.println("Created: " + res);
-        // } catch (Exception e) {
-            // e.printStackTrace();
-        // }
-        Node n;
-
-        try {
-            // res = client.getDataSync("/test-node-syed-dev-0").getDataB64();
-            // System.out.println("State-1: " + res);
-            // n = client.setDataSync("/test-node-syed-dev-0", data, -1);
-            // res = client.getDataSync("/test-node-syed-dev-0").getDataB64();
-            // System.out.println("State-2: " + res);
-            
-            // CompletableFuture<GetDataResult> f = client.existsAsync("abcd");
-            // n = f.get().getNode().orElse(null);
-            // assert n == null;
-
-            // n = client.existsSync("/test-node-syed-dev-0");
-            // assert n != null;
-            // System.out.println("DATAA: " + n.getDataB64());
-
-            // List<String> l = client.getChildrenSync(nodePath);
-            // for(String ch: l) {
-            //     System.out.println("Child getchildop: " + ch);
-            // }
-            // CompletableFuture<Node> fut = client.createAsync("/test-node-syed-dev-22", data, 0);
-            // Node n = fut.get();
-            // System.out.println("Create done: " + n.getPath());
-            // byte[] updat = {1, 1, 1, 1, 1};
-            // Node n = client.setData(nodePath, updat, -1);
-            
-            // client.delete(nodePath, -1);
-
-
-            // res = client.create("/test-node-syed-dev-22", data, 0);
-            // System.out.println("Created: " + res);
-
-            // for (BigInteger i: n.getModified().getSystem().serialize()) {
-            //     System.out.println("Modified num: ");
-            //     System.out.println(i);
-            // }
-            // f = client.getDataAsync(nodePath);
-            // n = f.get().getNode().get();
-            // for(String ch: n.getChildren()) {
-            //     System.out.println("Child: " + ch);
-            // }
-
-        } catch (Exception e) {
-            System.out.println("Error occurred during node creation: " + e.getMessage());
-            e.printStackTrace();
-        }
-        client.stop();
-        System.out.println("Stopped client, exiting program now");
-        // String content = "";
-        // try {
-        //     content = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath)));
-        // } catch (java.io.IOException e) {
-        //     System.err.println("Failed to read file: " + e.getMessage());
-        // }
-        // System.out.println("File content: " + content);
-
-        // try {
-        //     FaasKeeperConfig cfg = FaasKeeperConfig.deserialize(content);
-        //     System.out.println("Config: " + cfg.getProviderConfig().getDataBucket());
-        // } catch (Exception e) {
-        //     System.err.println("Failed to deserialize config: " + e.getMessage());
-        // }
-    }
-
     public static void testDDB() {
         String tableName = "faaskeeper-dev-0-users";
         String user = "42";
@@ -223,14 +147,14 @@ public class App {
             .region(region)
             .build();
 
-        add_session(ddb, tableName, "user", user, "source_addr", sourceAddress);
+        testAddSession(ddb, tableName, "user", user, "source_addr", sourceAddress);
         testDeleteSession(ddb, tableName, "user", user);
 
         System.out.println("Done!");
         ddb.close();
     }
 
-    public static void add_session(DynamoDbClient ddb,
+    public static void testAddSession(DynamoDbClient ddb,
                                       String tableName,
                                       String key,
                                       String keyVal,
