@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import java.util.concurrent.CountDownLatch;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.operations.GetDataResult;
 import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
@@ -48,24 +49,51 @@ public class App {
 
     public static void main(String[] args) {
         try {
+            String filePath = "/Users/syed/Desktop/gsoc/java-testbed/test-config.json";
+            FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false, null);
+            client.start();
             // testFK();
-            testZK();
+            // testZKDelete(client, "/test-node-syed-dev-2");
+            testZKExists(client, "/test-node-syed-dev-2");
+            testZKExists(client, "/");
+
+            client.stop();
         } catch (Exception e) {
             System.out.println(e);
+            e.printStackTrace();
         }
     }
 
     public static String getUUID() {
         return UUID.randomUUID().toString();
     }
+    
+    public static void testZKExists(FaasKeeperClient client, String path) throws Exception {
+        client.exists(path, false, new AsyncCallback.StatCallback() {
+            @Override
+            public void processResult(int rc, String path, Object ctx, Stat stat) {
+                // TODO Auto-generated method stub
+                LOG.info("Exists returned: " + String.valueOf(rc) + " for " + path);
+                if (stat != null) {
+                    System.out.format("Numchild: %d\n", stat.getNumChildren());
+                }
+            }   
+        }, null);
+        Thread.sleep(10000);
+    }
 
-    public static void testZK() throws Exception {
-        String filePath = "/Users/syed/Desktop/gsoc/java-testbed/test-config.json";
-        FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false);
-        client.start();
+    public static void testZKDelete(FaasKeeperClient client, String nodeToDelete) throws Exception {
+        client.delete(nodeToDelete, -1, new AsyncCallback.VoidCallback() {
+            public void processResult(int rc, String path, Object ctx) {
+                System.out.println("Delete returned: " + String.valueOf(rc));
+            }
+        }, null);
+        Thread.sleep(10000);
+    }
+
+    public static void testZKCreate(FaasKeeperClient client, String nodePath) throws Exception {
         byte[] data = {1, 2};
-        String nodePath = "/test-node-syed-dev-4";
-        String randomPath = "/" + UUID.randomUUID().toString();
+        // String randomPath = "/" + UUID.randomUUID().toString();
         
         AsyncCallback.Create2Callback cbc = new AsyncCallback.Create2Callback() {
             public void processResult(int rc, String path, Object ctx, String name, Stat stat) {
@@ -100,27 +128,16 @@ public class App {
             }
         };
 
-
-
-        try {
-            // client.create(nodePath, data, null, CreateMode.PERSISTENT, cbs, null);
-            client.create(nodePath, data, null, CreateMode.PERSISTENT, cbc, null);
-            // String res = client.create("/" + getUUID(), data, null, CreateMode.PERSISTENT);
-            // System.out.format("Created: {}", res);
-            Thread.sleep(10000);
-            System.out.println("Done");
-
-        } catch (Exception e) {
-            System.out.println("Error occurred during node creation: " + e.getMessage());
-            e.printStackTrace();
-        }
-        client.stop();
-        System.out.println("Stopped client, exiting program now");
+        // client.create(nodePath, data, null, CreateMode.PERSISTENT, cbs, null);
+        client.create(nodePath, data, null, CreateMode.PERSISTENT, cbc, null);
+        // String res = client.create("/" + getUUID(), data, null, CreateMode.PERSISTENT);
+        // System.out.format("Created: {}", res);
+        Thread.sleep(10000);
     }
 
     public static void testFK() throws Exception {
         String filePath = "/Users/syed/Desktop/gsoc/java-testbed/test-config.json";
-        FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false);
+        FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false, null);
         client.start();
         byte[] data = {1, 2, 3, 4, 5, 6};
         String res = "";

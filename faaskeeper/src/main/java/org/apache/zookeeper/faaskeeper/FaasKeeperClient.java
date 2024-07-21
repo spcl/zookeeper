@@ -32,13 +32,17 @@ import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.operations.RegisterSession;
 import org.apache.zookeeper.faaskeeper.operations.SetData;
 import org.apache.zookeeper.AsyncCallback.Create2Callback;
+import org.apache.zookeeper.AsyncCallback.StatCallback;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.AsyncCallback.VoidCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.ZooKeeper.WatchRegistration;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.client.Chroot;
+import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.common.PathUtils;
 
 
@@ -55,12 +59,13 @@ public class FaasKeeperClient {
     private static Map<String, Class<? extends ProviderClient>> providers = new HashMap<>();
     private final Chroot chroot;
     private static final Logger LOG;
+    private Watcher defaultWatcher;
     static {
         LOG = LoggerFactory.getLogger(FaasKeeperClient.class);
         providers.put(CloudProvider.serialize(CloudProvider.AWS), AwsClient.class);
     }
 
-    public FaasKeeperClient(FaasKeeperConfig cfg, boolean heartbeat) {
+    public FaasKeeperClient(FaasKeeperConfig cfg, boolean heartbeat, Watcher watcher) {
         try {
             this.cfg = cfg;
             this.heartbeat = heartbeat;
@@ -69,6 +74,7 @@ public class FaasKeeperClient {
             this.eventQueue = new EventQueue();
             this.workQueue = new WorkQueue();
             this.chroot = Chroot.ofNullable(cfg.getChrootPath());
+            this.defaultWatcher = watcher;
         } catch (Exception e) {
             LOG.error("Error in initializing provider client", e);
             throw new RuntimeException("Error in initializing provider client", e);
@@ -107,10 +113,10 @@ public class FaasKeeperClient {
         sorterThread.stop();
     }
 
-    public static FaasKeeperClient buildClient(String configFilePath, boolean heartbeat) throws Exception {
+    public static FaasKeeperClient buildClient(String configFilePath, boolean heartbeat, Watcher watcher) throws Exception {
         try {
             FaasKeeperConfig cfg = FaasKeeperConfig.buildFromConfigJson(configFilePath);
-            return new FaasKeeperClient(cfg, heartbeat);
+            return new FaasKeeperClient(cfg, heartbeat, watcher);
         } catch (Exception e) {
             LOG.error("Error in creating client", e);
             throw e;
@@ -146,10 +152,10 @@ public class FaasKeeperClient {
         return create(path, data, acl, createMode, stat, -1);
     }
 
-    public static void updateStat(Stat stat, Node n, CreateMode createMode) throws Exception {
+    public static void updateStat(Stat stat, Node n, CreateMode createMode) {
         // TODO: Update stat value (cxzid, mzxid) once FK ID length reduction is implemented
-
-        if (createMode.isEphemeral()) {
+        // TODO: Node has to store it's CreateMode (persistent of ephemeral)
+        if (createMode != null && createMode.isEphemeral()) {
         // TODO: set ephemeral owner to sessionID but sessionID is a String
         // TODO: change sessionID to integer. Will have to implement this to support Ephemeral Znodes
         } else {
@@ -373,14 +379,72 @@ public class FaasKeeperClient {
         return future;
     }
 
-    public Node existsSync(String path) throws Exception {
-        return existsAsync(path).get().getNode().orElse(null);
+    public Node existsSync(String path, Watcher watcher) throws Exception {
+        return existsAsync(path, watcher).get().getNode().orElse(null);
     }
 
-    public CompletableFuture<GetDataResult> existsAsync(String path) throws Exception {
+    public CompletableFuture<GetDataResult> existsAsync(String path, Watcher watcher) throws Exception {
         CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
-        NodeExists requestOp = new NodeExists(sessionId, path, null);
+        NodeExists requestOp = new NodeExists(sessionId, path, watcher);
         workQueue.addRequest(requestOp, future);
         return future;
     }
+
+    // TODO: Support watches for exists
+    public Stat exists(final String path, Watcher watcher) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new ExistsWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+        Stat stat = new Stat();
+        Node n = existsSync(serverPath, watcher);
+        if (n == null) {
+            return null;
+        }
+
+        updateStat(stat, n, null);
+
+        return stat;
+    }
+
+    public Stat exists(String path, boolean watch) throws Exception {
+        return exists(path, watch ? this.defaultWatcher : null);
+    }
+
+    /*
+     * The asynchronous version of exists.
+     */
+    public void exists(final String path, Watcher watcher, StatCallback cb, Object ctx) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new ExistsWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
+        NodeExists requestOp = new NodeExists(sessionId, path, watcher);
+        requestOp.setCallback(cb, ctx);
+        workQueue.addRequest(requestOp, future);
+   
+    }
+
+    /*
+     * The asynchronous version of exists.
+     */
+    public void exists(String path, boolean watch, StatCallback cb, Object ctx) throws Exception {
+        exists(path,  watch ? this.defaultWatcher : null, cb, ctx);
+    }
+
+
+
+
 }

@@ -21,9 +21,9 @@ public class Node {
         return this.path;
     }
 
-    public List<String> getChildren() throws Exception {
+    public List<String> getChildren() throws RuntimeException {
         if (this.children == null) {
-            throw new IllegalStateException("Node has no children list");
+            throw new RuntimeException("Node has no children list");
         }
         return this.children;
     }

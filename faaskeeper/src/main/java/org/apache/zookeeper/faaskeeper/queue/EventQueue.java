@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.operations.DirectOperation;
 import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.operations.RequestOperation;
 
@@ -47,13 +48,13 @@ public class EventQueue {
     // public void addExpectedResult(int requestId, Operation request, Future future) {
     // }
 
-    public void addDirectResult(int requestId, ReadOpResult result, CompletableFuture<ReadOpResult> future) throws Exception {
+    public void addDirectResult(int requestId, ReadOpResult result, CompletableFuture<ReadOpResult> future, DirectOperation op) throws Exception {
         if (closing) {
             throw new Exception("Cannot add result to queue: EventQueue has been closed");
         }
 
         try {
-            queue.add(new CloudDirectResult(requestId, result, future));
+            queue.add(new CloudDirectResult(requestId, result, future, op));
         } catch (IllegalStateException e) {
             LOG.error("EventQueue add item failed", e);
             throw e;

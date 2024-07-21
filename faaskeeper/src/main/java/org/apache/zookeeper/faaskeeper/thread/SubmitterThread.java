@@ -78,11 +78,13 @@ public class SubmitterThread implements Runnable {
                     LOG.debug("Sending create req to providerClient");
                     providerClient.sendRequest(sessionID + "-" + String.valueOf(request.requestID), op.generateRequest());
                 } catch (Exception ex) { // Provider exception
-                    // TODO VERY IMPORTANT: Push Direct error result to queue
+                    // TODO VERY IMPORTANT: Push error result to queue. Create new class for this event
                     LOG.error("Provider exception:", ex);
                 }
 
             } else if (request.operation instanceof DirectOperation) {
+                DirectOperation directOp = (DirectOperation) request.operation;
+
                 try {
                     String opName = request.operation.getName();
 
@@ -90,30 +92,30 @@ public class SubmitterThread implements Runnable {
                         case "register_session":
                             RegisterSession reg_op = (RegisterSession) request.operation;
                             providerClient.registerSession(reg_op.getSessionId(), reg_op.sourceAddr, reg_op.heartbeat);
-                            eventQueue.addDirectResult(request.requestID, new RegisterSessionResult(reg_op.getSessionId()), request.future);
+                            eventQueue.addDirectResult(request.requestID, new RegisterSessionResult(reg_op.getSessionId()), request.future, directOp);
                             break;
 
                         case "get_data":
                             GetData get_op = (GetData) request.operation;
                             Node n = providerClient.getData(get_op.getPath());
-                            eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future);
+                            eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future, directOp);
                             break;
 
                         case "exists":
                             try {
                                 NodeExists exists_op = (NodeExists) request.operation;
                                 n = providerClient.getData(exists_op.getPath());
-                                eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future);
+                                eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future, directOp);
                             } catch (NodeDoesNotExist ex) {
                                 LOG.debug("Node does not exist");
-                                eventQueue.addDirectResult(request.requestID, new GetDataResult(null), request.future);
+                                eventQueue.addDirectResult(request.requestID, new GetDataResult(null), request.future, directOp);
                             }
                             break;
 
                         case "get_children":
                             GetChildren get_ch_op = (GetChildren) request.operation;
                             n = providerClient.getData(get_ch_op.getPath());
-                            eventQueue.addDirectResult(request.requestID, new GetChildrenResult(n.getChildren()), request.future);
+                            eventQueue.addDirectResult(request.requestID, new GetChildrenResult(n.getChildren()), request.future, directOp);
                             break;
                         default:
                             LOG.error("Unknown op type: " + opName);
@@ -122,7 +124,7 @@ public class SubmitterThread implements Runnable {
                 } catch (Exception e) {
                     LOG.debug("Exception in processing WorkQueue events in submitter thread", e);
                     try {
-                        eventQueue.addDirectResult(request.requestID, new ReadExceptionResult(e), request.future);
+                        eventQueue.addDirectResult(request.requestID, new ReadExceptionResult(e), request.future, directOp);
                     } catch (Exception ex) {
                         LOG.error("Fatal error in SubmitterThread. Failed in adding DirectResult to eventQueue: ", ex);
                     }

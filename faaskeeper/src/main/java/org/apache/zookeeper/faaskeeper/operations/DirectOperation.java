@@ -1,30 +1,20 @@
 package org.apache.zookeeper.faaskeeper.operations;
-
-import java.util.Map;
-
-import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.Watcher;
 
 public abstract class DirectOperation extends Operation {
-    // TODO: define watch datatype
-    private Object watch;
+    private Watcher watcher;
     
-    public DirectOperation(String sessionId, String path, Object watch) {
+    public DirectOperation(String sessionId, String path, Watcher watch) {
         super(sessionId, path);
-        // TODO: Use actual value
-        watch = null;
+        this.watcher = watch;
 
     }
-
-    // public DirectOperation(Map<String, Object> data) {
-    //     super((String) data.get("sessionId"), (String) data.get("path"));
-    //     watch = data.get("watch");
-    // }
 
     public boolean isCloudRequest() {
         return false;
     }
 
-    public Object getWatch() {
-        return watch;
+    public Watcher getWatch() {
+        return watcher;
     }
 }
