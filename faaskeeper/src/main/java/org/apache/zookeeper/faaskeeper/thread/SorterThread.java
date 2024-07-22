@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.EventQueueItem;
 import org.apache.zookeeper.faaskeeper.operations.NodeExists;
+import org.apache.zookeeper.faaskeeper.operations.GetChildren;
+import org.apache.zookeeper.faaskeeper.operations.GetData;
 import org.apache.zookeeper.faaskeeper.operations.ReadExceptionResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudDirectResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudExpectedResult;
@@ -66,6 +68,12 @@ public class SorterThread implements Runnable {
 
                         if (directResult.op instanceof NodeExists) {
                             NodeExists op = (NodeExists) directResult.op;
+                            op.processResult(directResult);
+                        } else if(directResult.op instanceof GetData) {
+                            GetData op = (GetData) directResult.op;
+                            op.processResult(directResult);
+                        } else if(directResult.op instanceof GetChildren) {
+                            GetChildren op = (GetChildren) directResult.op;
                             op.processResult(directResult);
                         } else {
                             if (directResult.result instanceof ReadExceptionResult) {

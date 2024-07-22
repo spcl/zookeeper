@@ -4,10 +4,9 @@ import org.apache.zookeeper.Watcher;
 public abstract class DirectOperation extends Operation {
     private Watcher watcher;
     
-    public DirectOperation(String sessionId, String path, Watcher watch) {
+    public DirectOperation(String sessionId, String path, Watcher watcher) {
         super(sessionId, path);
-        this.watcher = watch;
-
+        this.watcher = watcher;
     }
 
     public boolean isCloudRequest() {

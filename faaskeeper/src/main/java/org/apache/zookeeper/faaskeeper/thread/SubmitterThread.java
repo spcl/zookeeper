@@ -9,11 +9,14 @@ import java.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.WorkQueueItem;
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
 import org.apache.zookeeper.faaskeeper.provider.NodeDoesNotExist;
+import org.apache.zookeeper.KeeperException.NoNodeException;
+import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.operations.DirectOperation;
 import org.apache.zookeeper.faaskeeper.operations.GetChildren;
@@ -53,6 +56,7 @@ public class SubmitterThread implements Runnable {
         future = executorService.submit(this);
     }
 
+    // TODO IMP: Handle cases where AWS call fails properly
     @Override
     public void run() {
         while(running) {
@@ -106,23 +110,25 @@ public class SubmitterThread implements Runnable {
                                 NodeExists exists_op = (NodeExists) request.operation;
                                 n = providerClient.getData(exists_op.getPath());
                                 eventQueue.addDirectResult(request.requestID, new GetDataResult(n), request.future, directOp);
-                            } catch (NodeDoesNotExist ex) {
-                                LOG.debug("Node does not exist");
+                            } catch (NoNodeException ex) {
                                 eventQueue.addDirectResult(request.requestID, new GetDataResult(null), request.future, directOp);
                             }
                             break;
 
                         case "get_children":
-                            GetChildren get_ch_op = (GetChildren) request.operation;
-                            n = providerClient.getData(get_ch_op.getPath());
-                            eventQueue.addDirectResult(request.requestID, new GetChildrenResult(n.getChildren()), request.future, directOp);
+                            GetChildren getChOp = (GetChildren) request.operation;
+                            n = providerClient.getData(getChOp.getPath());
+
+                            Stat stat = new Stat();
+                            FaasKeeperClient.updateStat(stat, n, null);
+
+                            eventQueue.addDirectResult(request.requestID, new GetChildrenResult(n.getChildren(), stat), request.future, directOp);
                             break;
                         default:
                             LOG.error("Unknown op type: " + opName);
                             break;
                     } 
                 } catch (Exception e) {
-                    LOG.debug("Exception in processing WorkQueue events in submitter thread", e);
                     try {
                         eventQueue.addDirectResult(request.requestID, new ReadExceptionResult(e), request.future, directOp);
                     } catch (Exception ex) {

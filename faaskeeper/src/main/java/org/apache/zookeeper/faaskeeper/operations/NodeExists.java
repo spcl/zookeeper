@@ -1,7 +1,5 @@
 package org.apache.zookeeper.faaskeeper.operations;
 
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.KeeperException.Code;
@@ -29,7 +27,9 @@ public class NodeExists extends DirectOperation {
             event.future.completeExceptionally(res.getException());
             
             rc = Code.SYSTEMERROR;
-            ((AsyncCallback.StatCallback)this.cb).processResult(rc.intValue(), this.getPath(), this.callbackCtx, null);
+            if (this.cb != null) {
+                ((AsyncCallback.StatCallback)this.cb).processResult(rc.intValue(), this.getPath(), this.callbackCtx, null);
+            }
 
         } else {
             event.future.complete(event.result);

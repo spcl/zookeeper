@@ -1,9 +1,13 @@
 package org.apache.zookeeper;
 
-import org.apache.zookeeper.data.Stat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 
-// snippet-start:[dynamodb.java2.put_item.main]
-// snippet-start:[dynamodb.java2.put_item.import]
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -12,24 +16,19 @@ import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
-import java.util.concurrent.CountDownLatch;
+import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.operations.GetDataResult;
 import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.thread.SorterThread;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
+/*
+ * Some documentation related to DynamoDB AWS SDK
  * Before running this Java V2 code example, set up your development environment, including your credentials.
  *
  * For more information, see the following documentation topic:
@@ -41,6 +40,7 @@ import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
  *  Enhanced Client. See the EnhancedPutItem example.
  */
 // {"user": session_id, "addr": source_addr, "ephemerals": []}
+
 public class App {
     private static final Logger LOG;
     static {
@@ -56,9 +56,12 @@ public class App {
 
             testZKCreate(client, newNode);
             testZKExists(client, newNode);
-            testZKExists(client, "/");
+            testZKSetData(client, newNode);
+            testZKGetData(client, newNode);
+            // testZKExists(client, "/nonexistentnode");
+            testZKGetChildren(client, "/");
             testZKDelete(client, newNode);
-            
+
             client.stop();
         } catch (Exception e) {
             System.out.println(e);
@@ -69,12 +72,53 @@ public class App {
     public static String getUUID() {
         return UUID.randomUUID().toString();
     }
+
+    public static void testZKSetData(FaasKeeperClient client, String path) throws Exception {
+        client.setData(path, new byte[]{}, -1, new AsyncCallback.StatCallback() {
+            @Override
+            public void processResult(int rc, String path, Object ctx, Stat stat) {
+                LOG.info("SetData returned: " + String.valueOf(rc) + " for " + path);
+                if (stat != null) {
+                    System.out.format("DataLen: %d\n", stat.getDataLength());
+                }
+            }
+        }, null);
+    }
+
+
+    public static void testZKGetData(FaasKeeperClient client, String path) throws Exception {
+        client.getData(path, null, new AsyncCallback.DataCallback() {
+            @Override
+            public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
+                LOG.info("GetData returned: " + String.valueOf(rc) + " for " + path);
+                LOG.info("Datalen from array: " + String.valueOf(data.length));
+
+                if (stat != null) {
+                    System.out.format("DataLen from stat: %d\n", stat.getDataLength());
+                }
+            }
+        }, null);
+    }
+
+    public static void testZKGetChildren(FaasKeeperClient client, String path) throws Exception {
+        client.getChildren(path, null, new AsyncCallback.Children2Callback() {
+            @Override
+            public void processResult(int rc, String path, Object ctx, List<String> children, Stat stat) {
+                LOG.info("GetChildren returned: " + String.valueOf(rc) + " for " + path);
+                for (String child: children) {
+                    LOG.info("Child: " + child);
+                }
+                System.out.format("NumChild from stat: %d\n", stat.getNumChildren());
+            }
+        }, null);
+    }
+
+
     
     public static void testZKExists(FaasKeeperClient client, String path) throws Exception {
         client.exists(path, false, new AsyncCallback.StatCallback() {
             @Override
             public void processResult(int rc, String path, Object ctx, Stat stat) {
-                // TODO Auto-generated method stub
                 LOG.info("Exists returned: " + String.valueOf(rc) + " for " + path);
                 if (stat != null) {
                     System.out.format("Numchild: %d\n", stat.getNumChildren());
@@ -137,6 +181,7 @@ public class App {
         Thread.sleep(10000);
     }
 
+    /* 
     public static void testDDB() {
         String tableName = "faaskeeper-dev-0-users";
         String user = "42";
@@ -153,7 +198,7 @@ public class App {
         System.out.println("Done!");
         ddb.close();
     }
-
+ 
     public static void testAddSession(DynamoDbClient ddb,
                                       String tableName,
                                       String key,
@@ -203,4 +248,5 @@ public class App {
             System.exit(1);
         }
     }
+    */
 }

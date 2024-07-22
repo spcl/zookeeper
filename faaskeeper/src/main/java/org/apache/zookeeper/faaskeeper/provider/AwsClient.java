@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.List;
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.ArrayList;
 import java.util.Base64;
 import org.slf4j.Logger;
@@ -35,7 +34,9 @@ import org.apache.zookeeper.faaskeeper.model.QueueType;
 import org.apache.zookeeper.faaskeeper.model.Version;
 import org.apache.zookeeper.faaskeeper.model.EpochCounter;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
-
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.KeeperException.Code;
+import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.faaskeeper.FaasKeeperConfig;
 
 public class AwsClient extends ProviderClient {
@@ -120,7 +121,7 @@ public class AwsClient extends ProviderClient {
 
     }
 
-    public Node getData(String path) throws DynamoDbException, Exception {
+    public Node getData(String path) throws DynamoDbException, KeeperException {
         Map<String, AttributeValue> key = new HashMap<>();
         key.put("path", AttributeValue.builder().s(path).build());
 
@@ -189,12 +190,15 @@ public class AwsClient extends ProviderClient {
                 if (data != null) {
                     node.setData(data);
                     node.setDataB64(Base64.getEncoder().encodeToString(data));
+                } else {
+                    node.setData(new byte[]{});
+                    node.setDataB64("");
                 }
                 
                 return node;
             } else {
                 LOG.debug("Empty result from ddb. Node does not exist");
-                throw new NodeDoesNotExist(path);
+                throw new NoNodeException(path);
             }
         } catch (DynamoDbException e) {
             LOG.error("Error fetching node data from DynamoDB: " + e.getMessage());

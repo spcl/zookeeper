@@ -13,10 +13,23 @@ import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
 import org.apache.zookeeper.faaskeeper.thread.SorterThread;
 import org.apache.zookeeper.faaskeeper.thread.SqsListener;
 import org.apache.zookeeper.faaskeeper.thread.SubmitterThread;
+import org.apache.zookeeper.proto.GetChildren2Request;
+import org.apache.zookeeper.proto.GetChildren2Response;
+import org.apache.zookeeper.proto.GetChildrenRequest;
+import org.apache.zookeeper.proto.GetChildrenResponse;
+import org.apache.zookeeper.proto.GetDataRequest;
+import org.apache.zookeeper.proto.GetDataResponse;
+import org.apache.zookeeper.proto.ReplyHeader;
+import org.apache.zookeeper.proto.RequestHeader;
+import org.apache.zookeeper.proto.SetDataRequest;
+import org.apache.zookeeper.proto.SetDataResponse;
+import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.EphemeralType;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+
+import javax.xml.crypto.MarshalException;
 
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
 import org.apache.zookeeper.faaskeeper.provider.AwsClient;
@@ -31,18 +44,22 @@ import org.apache.zookeeper.faaskeeper.operations.NodeExists;
 import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
 import org.apache.zookeeper.faaskeeper.operations.RegisterSession;
 import org.apache.zookeeper.faaskeeper.operations.SetData;
+import org.apache.zookeeper.AsyncCallback.Children2Callback;
+import org.apache.zookeeper.AsyncCallback.ChildrenCallback;
 import org.apache.zookeeper.AsyncCallback.Create2Callback;
+import org.apache.zookeeper.AsyncCallback.DataCallback;
 import org.apache.zookeeper.AsyncCallback.StatCallback;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.AsyncCallback.VoidCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.KeeperException.MarshallingErrorException;
 import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooKeeper.WatchRegistration;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.client.Chroot;
-import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.common.PathUtils;
 
 
@@ -79,6 +96,17 @@ public class FaasKeeperClient {
             LOG.error("Error in initializing provider client", e);
             throw new RuntimeException("Error in initializing provider client", e);
         }
+    }
+
+    private Watcher getDefaultWatcher(boolean watch) {
+        if (watch) {
+            if (this.defaultWatcher == null) {
+                // TODO: Once watcher is implemented, throw IllegalStateException if watch is True but defaultWatcher is null. (Similar to the ZK getDefaultWatcher method)
+            }
+            return this.defaultWatcher;
+        }
+
+        return null;
     }
 
     private String prependChroot(String clientPath) {
@@ -153,6 +181,14 @@ public class FaasKeeperClient {
     }
 
     public static void updateStat(Stat stat, Node n, CreateMode createMode) {
+        // TODO: currently createMode null is accepted because NodeType is unknown in DDB
+
+        if (n == null) {
+            throw new RuntimeException("Node cannot be null");
+        }
+        if (stat == null) {
+            throw new RuntimeException("Stat cannot be null");
+        }
         // TODO: Update stat value (cxzid, mzxid) once FK ID length reduction is implemented
         // TODO: Node has to store it's CreateMode (persistent of ephemeral)
         if (createMode != null && createMode.isEphemeral()) {
@@ -195,7 +231,9 @@ public class FaasKeeperClient {
 
             Node n = createSync(serverPath, data, createMode.toFlag());
 
-            updateStat(stat, n, createMode);
+            if (stat != null) {
+                updateStat(stat, n, createMode);
+            }
 
             return chroot.strip(n.getPath());
     }
@@ -274,6 +312,11 @@ public class FaasKeeperClient {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
+
+        if (value == null) {
+            value = new byte[]{};
+        }
+
         CreateNode requestOp = new CreateNode(sessionId, path, value, flags);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
@@ -320,7 +363,7 @@ public class FaasKeeperClient {
             serverPath = prependChroot(clientPath);
         }
 
-        DeleteNode requestOp = new DeleteNode(sessionId, path, version);
+        DeleteNode requestOp = new DeleteNode(sessionId, serverPath, version);
         requestOp.setCallback(cb, ctx);
         
         workQueue.addRequest(requestOp, new CompletableFuture<Node>());
@@ -336,9 +379,15 @@ public class FaasKeeperClient {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
+
+        if (value == null) {
+            value = new byte[]{};
+        }
+
         SetData requestOp = new SetData(sessionId, path, value, version);
         CompletableFuture<Node> future = new CompletableFuture<Node>();
         workQueue.addRequest(requestOp, future);
+
         return future;
     }
 
@@ -357,7 +406,7 @@ public class FaasKeeperClient {
         return future;
     }
 
-    public Node getDataSync(String path) throws Exception {
+    public Node getDataSync(String path) throws KeeperException, InterruptedException, ExecutionException, Exception {
         return getDataAsync(path).get().getNode().get();
     }
 
@@ -368,8 +417,8 @@ public class FaasKeeperClient {
         return future;
     }
 
-    public List<String> getChildrenSync(String path) throws Exception {
-        return getChildrenAsync(path).get().getChildren();
+    public GetChildrenResult getChildrenSync(String path) throws Exception {
+        return getChildrenAsync(path).get();
     }
 
     public CompletableFuture<GetChildrenResult> getChildrenAsync(String path) throws Exception {
@@ -413,7 +462,7 @@ public class FaasKeeperClient {
     }
 
     public Stat exists(String path, boolean watch) throws Exception {
-        return exists(path, watch ? this.defaultWatcher : null);
+        return exists(path, getDefaultWatcher(watch));
     }
 
     /*
@@ -431,7 +480,7 @@ public class FaasKeeperClient {
         final String serverPath = prependChroot(clientPath);
 
         CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
-        NodeExists requestOp = new NodeExists(sessionId, path, watcher);
+        NodeExists requestOp = new NodeExists(sessionId, serverPath, watcher);
         requestOp.setCallback(cb, ctx);
         workQueue.addRequest(requestOp, future);
    
@@ -441,10 +490,205 @@ public class FaasKeeperClient {
      * The asynchronous version of exists.
      */
     public void exists(String path, boolean watch, StatCallback cb, Object ctx) throws Exception {
-        exists(path,  watch ? this.defaultWatcher : null, cb, ctx);
+        exists(path,  getDefaultWatcher(watch), cb, ctx);
     }
 
 
+    // TODO imp: Get all FK ops to use ZK custom exceptions
+    public byte[] getData(final String path, Watcher watcher, Stat stat) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new DataWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        Node n = getDataSync(serverPath);
+
+        byte[] data = n.getData();
+
+        if (stat != null) {
+            // TODO: We do not know the createMode of each node yet. This is not stored in DDB yet
+            updateStat(stat, n, null);
+        }
+
+        return data;
+    }
+
+    public byte[] getData(String path, boolean watch, Stat stat) throws KeeperException, InterruptedException, Exception {
+        return getData(path, getDefaultWatcher(watch), stat);
+    }
+
+        /**
+     * The asynchronous version of getData.
+     *
+     * @see #getData(String, Watcher, Stat)
+     */
+    public void getData(final String path, Watcher watcher, DataCallback cb, Object ctx) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new DataWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        GetData requestOp = new GetData(sessionId, serverPath, watcher);
+        requestOp.setCallback(cb, ctx);
+
+        workQueue.addRequest(requestOp, new CompletableFuture<GetDataResult>());
+    }
+
+    /*
+     * The asynchronous version of getData.
+     */
+    public void getData(String path, boolean watch, DataCallback cb, Object ctx) throws Exception {
+        getData(path, getDefaultWatcher(watch), cb, ctx);
+    }
+
+    public Stat setData(final String path, byte[] data, int version) throws KeeperException, InterruptedException, Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        if (data.length > 1024 * 1024) {
+            LOG.debug("Data length more than 1MB");
+            throw new MarshallingErrorException();
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        Node n = setDataSync(serverPath, data, version);
+
+        Stat stat = new Stat();
+        updateStat(stat, n, null);
+
+        return stat;
+    }
+
+    /*
+     * The asynchronous version of setData.
+     */
+    public void setData(final String path, byte[] data, int version, StatCallback cb, Object ctx) throws KeeperException, Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        if (data.length > 1024 * 1024) {
+            LOG.debug("Data length more than 1MB");
+            throw new MarshallingErrorException();
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        SetData requestOp = new SetData(sessionId, serverPath, data, version);
+        requestOp.setCallback(cb, ctx);
+
+        workQueue.addRequest(requestOp, new CompletableFuture<Node>());
+    }
+
+    public List<String> getChildren(final String path, Watcher watcher) throws Exception, KeeperException, InterruptedException {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // the watch contains the un-chroot path
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new ChildWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        return getChildrenSync(serverPath).getChildren();   
+    }
+
+    public List<String> getChildren(String path, boolean watch) throws Exception, KeeperException, InterruptedException {
+        return getChildren(path, getDefaultWatcher(watch));
+    }
+
+    /*
+     * The asynchronous version of getChildren.
+     */
+    public void getChildren(final String path, Watcher watcher, ChildrenCallback cb, Object ctx) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // the watch contains the un-chroot path
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new ChildWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        GetChildren requestOp = new GetChildren(sessionId, serverPath, watcher);
+        requestOp.setCallback(cb, ctx);
+        workQueue.addRequest(requestOp, new CompletableFuture<GetChildrenResult>());
+    }
+
+    /*
+     * The asynchronous version of getChildren.
+     */
+    public void getChildren(String path, boolean watch, ChildrenCallback cb, Object ctx) throws Exception {
+        getChildren(path, getDefaultWatcher(watch), cb, ctx);
+    }
+
+    public List<String> getChildren(
+        final String path,
+        Watcher watcher,
+        Stat stat) throws KeeperException, InterruptedException, Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // the watch contains the un-chroot path
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new ChildWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+        GetChildrenResult res = getChildrenSync(serverPath);
+
+        if (stat != null) {
+            DataTree.copyStat(res.getStat(), stat);
+        }
+
+        return res.getChildren();
+    }
+
+    public List<String> getChildren(
+        String path,
+        boolean watch,
+        Stat stat) throws KeeperException, InterruptedException, Exception {
+        return getChildren(path, getDefaultWatcher(watch), stat);
+    }
+
+    /*
+     * The asynchronous version of getChildren.
+     */
+    public void getChildren(final String path, Watcher watcher, Children2Callback cb, Object ctx) throws Exception {
+        final String clientPath = path;
+        PathUtils.validatePath(clientPath);
+
+        // the watch contains the un-chroot path
+        // WatchRegistration wcb = null;
+        if (watcher != null) {
+            // wcb = new ChildWatchRegistration(watcher, clientPath);
+        }
+
+        final String serverPath = prependChroot(clientPath);
+
+        GetChildren requestOp = new GetChildren(sessionId, serverPath, watcher);
+        requestOp.setCallback(cb, ctx);
+        workQueue.addRequest(requestOp, new CompletableFuture<GetChildrenResult>());
+    }
+
+    public void getChildren(String path, boolean watch, Children2Callback cb, Object ctx) throws Exception {
+        getChildren(path, getDefaultWatcher(watch), cb, ctx);
+    }
 
 
 }
