@@ -1,27 +1,8 @@
 package org.apache.zookeeper;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
-
 import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.faaskeeper.model.Node;
-import org.apache.zookeeper.faaskeeper.operations.GetDataResult;
-import org.apache.zookeeper.faaskeeper.operations.ReadOpResult;
-import org.apache.zookeeper.faaskeeper.thread.SorterThread;
 import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
 
 import org.slf4j.Logger;
@@ -52,16 +33,16 @@ public class App {
             String filePath = "/Users/syed/Desktop/gsoc/java-testbed/test-config.json";
             FaasKeeperClient client = FaasKeeperClient.buildClient(filePath, false, null);
             client.start();
-            String newNode = "/test-node-1";
+            String newNodePath = "/test-node-1";
 
-            testZKCreate(client, newNode);
-            testZKExists(client, newNode);
-            testZKSetData(client, newNode);
-            testZKGetData(client, newNode);
-            // testZKExists(client, "/nonexistentnode");
+            testZKCreate(client, newNodePath);
+            testZKExists(client, newNodePath);
+            testZKSetData(client, newNodePath);
+            testZKGetData(client, newNodePath);
             testZKGetChildren(client, "/");
-            testZKDelete(client, newNode);
+            testZKDelete(client, newNodePath);
 
+            // testZKExists(client, "/nonexistentnode");
             client.stop();
         } catch (Exception e) {
             System.out.println(e);
