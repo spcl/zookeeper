@@ -13,23 +13,12 @@ import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
 import org.apache.zookeeper.faaskeeper.thread.SorterThread;
 import org.apache.zookeeper.faaskeeper.thread.SqsListener;
 import org.apache.zookeeper.faaskeeper.thread.SubmitterThread;
-import org.apache.zookeeper.proto.GetChildren2Request;
-import org.apache.zookeeper.proto.GetChildren2Response;
-import org.apache.zookeeper.proto.GetChildrenRequest;
-import org.apache.zookeeper.proto.GetChildrenResponse;
-import org.apache.zookeeper.proto.GetDataRequest;
-import org.apache.zookeeper.proto.GetDataResponse;
-import org.apache.zookeeper.proto.ReplyHeader;
-import org.apache.zookeeper.proto.RequestHeader;
-import org.apache.zookeeper.proto.SetDataRequest;
-import org.apache.zookeeper.proto.SetDataResponse;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.EphemeralType;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
-import javax.xml.crypto.MarshalException;
 
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
 import org.apache.zookeeper.faaskeeper.provider.AwsClient;
@@ -53,10 +42,7 @@ import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.AsyncCallback.VoidCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.MarshallingErrorException;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.ZooDefs;
-import org.apache.zookeeper.ZooKeeper.WatchRegistration;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.client.Chroot;
@@ -157,7 +143,7 @@ public class FaasKeeperClient {
         final String path,
         byte[] data,
         List<ACL> acl,
-        CreateMode createMode) throws Exception {
+        CreateMode createMode) throws KeeperException, InterruptedException {
             if (!createMode.equals(CreateMode.PERSISTENT)) {
                 throw new UnsupportedOperationException("This method is unimplemented");
             }
@@ -176,7 +162,7 @@ public class FaasKeeperClient {
         byte[] data,
         List<ACL> acl,
         CreateMode createMode,
-        Stat stat) throws Exception {
+        Stat stat) throws KeeperException, InterruptedException {
         return create(path, data, acl, createMode, stat, -1);
     }
 
@@ -218,7 +204,7 @@ public class FaasKeeperClient {
         List<ACL> acl,
         CreateMode createMode,
         Stat stat,
-        long ttl) throws Exception {
+        long ttl) throws KeeperException, InterruptedException {
             if (ttl != -1 || !createMode.equals(CreateMode.PERSISTENT)) {
                 throw new UnsupportedOperationException("This method is unimplemented");
             }
@@ -245,7 +231,7 @@ public class FaasKeeperClient {
         List<ACL> acl,
         CreateMode createMode,
         StringCallback cb,
-        Object ctx) throws Exception {
+        Object ctx) {
             if (!createMode.equals(CreateMode.PERSISTENT)) {
                 throw new UnsupportedOperationException("This method is unimplemented");
             }
@@ -270,7 +256,7 @@ public class FaasKeeperClient {
     List<ACL> acl,
     CreateMode createMode,
     Create2Callback cb,
-    Object ctx) throws Exception {
+    Object ctx) {
         create(path, data, acl, createMode, cb, ctx, -1);
     }
 
@@ -282,7 +268,7 @@ public class FaasKeeperClient {
         CreateMode createMode,
         Create2Callback cb,
         Object ctx,
-        long ttl) throws Exception {
+        long ttl) {
             if (ttl != -1 || !createMode.equals(CreateMode.PERSISTENT)) {
                 throw new UnsupportedOperationException("This method is unimplemented");
             }
@@ -302,13 +288,18 @@ public class FaasKeeperClient {
 
     // TODO: Make createSync and createAsync private funcs once ZK compatible functions are implemented
     // flags represents createmode in its bit representation
-    public Node createSync(String path, byte[] value, int flags) throws Exception {
+    public Node createSync(String path, byte[] value, int flags) throws KeeperException, InterruptedException {
         CompletableFuture<Node> future = createAsync(path, value, flags);
-        Node n = future.get();
-        return n;
+
+        try {
+            Node n = future.get();
+            return n;
+        } catch (ExecutionException | CancellationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public CompletableFuture<Node> createAsync(String path, byte[] value, int flags) throws Exception {
+    public CompletableFuture<Node> createAsync(String path, byte[] value, int flags) {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
@@ -323,7 +314,7 @@ public class FaasKeeperClient {
         return future;
     }
 
-    public void delete(final String path, int version) throws Exception {
+    public void delete(final String path, int version) throws InterruptedException, KeeperException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -346,7 +337,7 @@ public class FaasKeeperClient {
     /*
      * The asynchronous version of delete.
     */
-    public void delete(final String path, int version, VoidCallback cb, Object ctx) throws Exception {
+    public void delete(final String path, int version, VoidCallback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -370,12 +361,16 @@ public class FaasKeeperClient {
     }
 
 
-    public Node setDataSync(String path, byte[] value, int version) throws Exception {
+    public Node setDataSync(String path, byte[] value, int version) throws KeeperException, InterruptedException {
         CompletableFuture<Node> future = setDataAsync(path, value, version);
-        return future.get();
+        try {
+            return future.get();
+        } catch (ExecutionException | CancellationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public CompletableFuture<Node> setDataAsync(String path, byte[] value, int version) throws Exception {
+    public CompletableFuture<Node> setDataAsync(String path, byte[] value, int version) {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
@@ -391,12 +386,17 @@ public class FaasKeeperClient {
         return future;
     }
 
-    public void deleteSync(String path, int version) throws Exception {
+    public void deleteSync(String path, int version) throws InterruptedException, KeeperException {
         CompletableFuture<Node> future = deleteAsync(path, version);
-        future.get();
+        
+        try {
+            future.get();
+        } catch (ExecutionException | CancellationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public CompletableFuture<Node> deleteAsync(String path, int version) throws Exception {
+    public CompletableFuture<Node> deleteAsync(String path, int version) throws KeeperException {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new RuntimeException("Missing session id in FK client");
         }
@@ -406,33 +406,45 @@ public class FaasKeeperClient {
         return future;
     }
 
-    public Node getDataSync(String path) throws KeeperException, InterruptedException, ExecutionException, Exception {
-        return getDataAsync(path).get().getNode().get();
+    public Node getDataSync(String path) throws KeeperException, InterruptedException {
+        try {
+            return getDataAsync(path).get().getNode().get();
+        } catch (ExecutionException | CancellationException e) {
+            throw new RuntimeException(e);
+        } 
     }
 
-    public CompletableFuture<GetDataResult> getDataAsync(String path) throws Exception {
+    public CompletableFuture<GetDataResult> getDataAsync(String path) {
         CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
         GetData requestOp = new GetData(sessionId, path, null);
         workQueue.addRequest(requestOp, future);
         return future;
     }
 
-    public GetChildrenResult getChildrenSync(String path) throws Exception {
-        return getChildrenAsync(path).get();
+    public GetChildrenResult getChildrenSync(String path) throws KeeperException, InterruptedException {
+        try {
+            return getChildrenAsync(path).get();
+        } catch (ExecutionException | CancellationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public CompletableFuture<GetChildrenResult> getChildrenAsync(String path) throws Exception {
+    public CompletableFuture<GetChildrenResult> getChildrenAsync(String path) {
         CompletableFuture<GetChildrenResult> future = new CompletableFuture<GetChildrenResult>();
         GetChildren requestOp = new GetChildren(sessionId, path, null);
         workQueue.addRequest(requestOp, future);
         return future;
     }
 
-    public Node existsSync(String path, Watcher watcher) throws Exception {
-        return existsAsync(path, watcher).get().getNode().orElse(null);
+    public Node existsSync(String path, Watcher watcher) throws  KeeperException, InterruptedException {
+        try {
+            return existsAsync(path, watcher).get().getNode().orElse(null);
+        } catch (ExecutionException | CancellationException e) {
+                throw new RuntimeException(e);
+        }
     }
 
-    public CompletableFuture<GetDataResult> existsAsync(String path, Watcher watcher) throws Exception {
+    public CompletableFuture<GetDataResult> existsAsync(String path, Watcher watcher) throws KeeperException {
         CompletableFuture<GetDataResult> future = new CompletableFuture<GetDataResult>();
         NodeExists requestOp = new NodeExists(sessionId, path, watcher);
         workQueue.addRequest(requestOp, future);
@@ -440,7 +452,7 @@ public class FaasKeeperClient {
     }
 
     // TODO: Support watches for exists
-    public Stat exists(final String path, Watcher watcher) throws Exception {
+    public Stat exists(final String path, Watcher watcher) throws  KeeperException, InterruptedException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -461,14 +473,14 @@ public class FaasKeeperClient {
         return stat;
     }
 
-    public Stat exists(String path, boolean watch) throws Exception {
+    public Stat exists(String path, boolean watch) throws KeeperException, InterruptedException {
         return exists(path, getDefaultWatcher(watch));
     }
 
     /*
      * The asynchronous version of exists.
      */
-    public void exists(final String path, Watcher watcher, StatCallback cb, Object ctx) throws Exception {
+    public void exists(final String path, Watcher watcher, StatCallback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -489,13 +501,11 @@ public class FaasKeeperClient {
     /*
      * The asynchronous version of exists.
      */
-    public void exists(String path, boolean watch, StatCallback cb, Object ctx) throws Exception {
+    public void exists(String path, boolean watch, StatCallback cb, Object ctx) {
         exists(path,  getDefaultWatcher(watch), cb, ctx);
     }
 
-
-    // TODO imp: Get all FK ops to use ZK custom exceptions
-    public byte[] getData(final String path, Watcher watcher, Stat stat) throws Exception {
+    public byte[] getData(final String path, Watcher watcher, Stat stat)  throws KeeperException, InterruptedException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -518,7 +528,7 @@ public class FaasKeeperClient {
         return data;
     }
 
-    public byte[] getData(String path, boolean watch, Stat stat) throws KeeperException, InterruptedException, Exception {
+    public byte[] getData(String path, boolean watch, Stat stat) throws KeeperException, InterruptedException {
         return getData(path, getDefaultWatcher(watch), stat);
     }
 
@@ -527,7 +537,7 @@ public class FaasKeeperClient {
      *
      * @see #getData(String, Watcher, Stat)
      */
-    public void getData(final String path, Watcher watcher, DataCallback cb, Object ctx) throws Exception {
+    public void getData(final String path, Watcher watcher, DataCallback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -547,17 +557,17 @@ public class FaasKeeperClient {
     /*
      * The asynchronous version of getData.
      */
-    public void getData(String path, boolean watch, DataCallback cb, Object ctx) throws Exception {
+    public void getData(String path, boolean watch, DataCallback cb, Object ctx) {
         getData(path, getDefaultWatcher(watch), cb, ctx);
     }
 
-    public Stat setData(final String path, byte[] data, int version) throws KeeperException, InterruptedException, Exception {
+    public Stat setData(final String path, byte[] data, int version) throws KeeperException, InterruptedException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
         if (data.length > 1024 * 1024) {
             LOG.debug("Data length more than 1MB");
-            throw new MarshallingErrorException();
+            throw new RuntimeException("Data length more than 1MB");
         }
 
         final String serverPath = prependChroot(clientPath);
@@ -573,13 +583,13 @@ public class FaasKeeperClient {
     /*
      * The asynchronous version of setData.
      */
-    public void setData(final String path, byte[] data, int version, StatCallback cb, Object ctx) throws KeeperException, Exception {
+    public void setData(final String path, byte[] data, int version, StatCallback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
         if (data.length > 1024 * 1024) {
             LOG.debug("Data length more than 1MB");
-            throw new MarshallingErrorException();
+            throw new RuntimeException("Data length more than 1MB");
         }
 
         final String serverPath = prependChroot(clientPath);
@@ -590,7 +600,7 @@ public class FaasKeeperClient {
         workQueue.addRequest(requestOp, new CompletableFuture<Node>());
     }
 
-    public List<String> getChildren(final String path, Watcher watcher) throws Exception, KeeperException, InterruptedException {
+    public List<String> getChildren(final String path, Watcher watcher) throws KeeperException, InterruptedException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -605,14 +615,14 @@ public class FaasKeeperClient {
         return getChildrenSync(serverPath).getChildren();   
     }
 
-    public List<String> getChildren(String path, boolean watch) throws Exception, KeeperException, InterruptedException {
+    public List<String> getChildren(String path, boolean watch) throws KeeperException, InterruptedException {
         return getChildren(path, getDefaultWatcher(watch));
     }
 
     /*
      * The asynchronous version of getChildren.
      */
-    public void getChildren(final String path, Watcher watcher, ChildrenCallback cb, Object ctx) throws Exception {
+    public void getChildren(final String path, Watcher watcher, ChildrenCallback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -632,14 +642,14 @@ public class FaasKeeperClient {
     /*
      * The asynchronous version of getChildren.
      */
-    public void getChildren(String path, boolean watch, ChildrenCallback cb, Object ctx) throws Exception {
+    public void getChildren(String path, boolean watch, ChildrenCallback cb, Object ctx) {
         getChildren(path, getDefaultWatcher(watch), cb, ctx);
     }
 
     public List<String> getChildren(
         final String path,
         Watcher watcher,
-        Stat stat) throws KeeperException, InterruptedException, Exception {
+        Stat stat) throws KeeperException, InterruptedException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -662,14 +672,14 @@ public class FaasKeeperClient {
     public List<String> getChildren(
         String path,
         boolean watch,
-        Stat stat) throws KeeperException, InterruptedException, Exception {
+        Stat stat) throws KeeperException, InterruptedException {
         return getChildren(path, getDefaultWatcher(watch), stat);
     }
 
     /*
      * The asynchronous version of getChildren.
      */
-    public void getChildren(final String path, Watcher watcher, Children2Callback cb, Object ctx) throws Exception {
+    public void getChildren(final String path, Watcher watcher, Children2Callback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
@@ -686,7 +696,7 @@ public class FaasKeeperClient {
         workQueue.addRequest(requestOp, new CompletableFuture<GetChildrenResult>());
     }
 
-    public void getChildren(String path, boolean watch, Children2Callback cb, Object ctx) throws Exception {
+    public void getChildren(String path, boolean watch, Children2Callback cb, Object ctx) {
         getChildren(path, getDefaultWatcher(watch), cb, ctx);
     }
 

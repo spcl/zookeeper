@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.slf4j.Logger;
@@ -48,15 +49,16 @@ public class DeleteNode extends RequestOperation {
                     rc = Code.SYSTEMERROR.intValue();
                     break;
                 case "node_doesnt_exist":
-                    future.completeExceptionally(new RuntimeException("Node doesn't exist"));
+                    future.completeExceptionally(new KeeperException.NoNodeException(result.get("path").asText()));
+
                     rc = Code.NONODE.intValue();
                     break;
                 case "update_not_committed":
-                    future.completeExceptionally(new RuntimeException("Update could not be applied"));
+                    future.completeExceptionally(new RuntimeException("Update could not be committed"));
                     rc = Code.SYSTEMERROR.intValue();
                     break;
                 case "not_empty":
-                    future.completeExceptionally(new RuntimeException("Node is not empty"));
+                    future.completeExceptionally(new KeeperException.NotEmptyException(result.get("path").asText()));
                     rc = Code.NOTEMPTY.intValue();
                     break;
                 default:

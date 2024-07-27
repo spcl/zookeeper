@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.math.BigInteger;
+import org.apache.zookeeper.KeeperException;
 import java.util.concurrent.CompletableFuture;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -27,7 +28,6 @@ public class CreateNode extends RequestOperation {
         LOG = LoggerFactory.getLogger(CreateNode.class);
     }
 
-    // TODO: Reduce args in constructor to 0 and use setter getter methods instead
     public CreateNode(String sessionId, String path, byte[] value, int flags) {
         super(sessionId, path);
         this.value = value;
@@ -97,15 +97,17 @@ public class CreateNode extends RequestOperation {
             switch (reason) {
                 case "node_exists":
                     errorCode = Code.NODEEXISTS.intValue();
-                    future.completeExceptionally(new RuntimeException("Node already exists: " + result.get("path").asText()));
+                    // future.completeExceptionally(new RuntimeException("Node already exists: " + result.get("path").asText()));
+                    future.completeExceptionally(new KeeperException.NodeExistsException(result.get("path").asText()));
                     break;
                 case "node_doesnt_exist":
                     errorCode = Code.NONODE.intValue();
-                    future.completeExceptionally(new RuntimeException("Node does not exist: " + result.get("path").asText()));
+                    future.completeExceptionally(new KeeperException.NoNodeException(result.get("path").asText()));
+                    // future.completeExceptionally(new RuntimeException("Node does not exist: " + result.get("path").asText()));
                     break;
                 case "update_not_committed":
                     errorCode = Code.SYSTEMERROR.intValue();
-                    future.completeExceptionally(new RuntimeException("Update could not be applied"));
+                    future.completeExceptionally(new RuntimeException("Update could not be committed"));
                     break;
                 default:
                     errorCode = Code.SYSTEMERROR.intValue();

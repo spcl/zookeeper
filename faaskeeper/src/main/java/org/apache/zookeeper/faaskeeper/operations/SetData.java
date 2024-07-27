@@ -10,6 +10,7 @@ import java.util.List;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
 import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
@@ -89,7 +90,7 @@ public class SetData extends RequestOperation {
                     break;
                 case "node_doesnt_exist":
                     code = Code.NONODE;
-                    future.completeExceptionally(new RuntimeException("Node doesn't exist"));
+                    future.completeExceptionally(new KeeperException.NoNodeException(result.get("path").asText()));
                     break;
                 case "update_not_committed":
                     code = Code.SYSTEMERROR;

@@ -24,9 +24,9 @@ public class WorkQueue {
         closing = false;
     }
 
-    public <T> void addRequest(Operation op, CompletableFuture<T> future) throws Exception {
+    public <T> void addRequest(Operation op, CompletableFuture<T> future) throws RuntimeException {
         if (closing) {
-            throw new Exception("Cannot add result to queue: WorkQueue has been closed");
+            throw new RuntimeException("Cannot add result to queue: WorkQueue has been closed");
         }
         try {
             queue.add(new WorkQueueItem<>(requestCount, op, future));
