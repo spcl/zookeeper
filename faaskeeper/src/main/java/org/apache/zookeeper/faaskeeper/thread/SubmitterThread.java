@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.faaskeeper.queue.WorkQueue;
+import org.apache.zookeeper.faaskeeper.queue.CloudProviderException;
 import org.apache.zookeeper.faaskeeper.queue.EventQueue;
 import org.apache.zookeeper.faaskeeper.queue.WorkQueueItem;
 import org.apache.zookeeper.faaskeeper.provider.ProviderClient;
@@ -82,8 +83,8 @@ public class SubmitterThread implements Runnable {
                     LOG.debug("Sending create req to providerClient");
                     providerClient.sendRequest(sessionID + "-" + String.valueOf(request.requestID), op.generateRequest());
                 } catch (Exception ex) { // Provider exception
-                    // TODO VERY IMPORTANT: Push error result to queue. Create new class for this event
                     LOG.error("Provider exception:", ex);
+                    eventQueue.addProviderError(request.requestID, (RequestOperation) request.operation, request.future, new CloudProviderException());
                 }
 
             } else if (request.operation instanceof DirectOperation) {

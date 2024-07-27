@@ -48,9 +48,9 @@ public class EventQueue {
     // public void addExpectedResult(int requestId, Operation request, Future future) {
     // }
 
-    public void addDirectResult(int requestId, ReadOpResult result, CompletableFuture<ReadOpResult> future, DirectOperation op) throws Exception {
+    public void addDirectResult(int requestId, ReadOpResult result, CompletableFuture<ReadOpResult> future, DirectOperation op) throws RuntimeException {
         if (closing) {
-            throw new Exception("Cannot add result to queue: EventQueue has been closed");
+            throw new RuntimeException("Cannot add result to queue: EventQueue has been closed");
         }
 
         try {
@@ -61,9 +61,9 @@ public class EventQueue {
         }
     }
 
-    public void addIndirectResult(JsonNode result) throws Exception {
+    public void addIndirectResult(JsonNode result) throws RuntimeException {
         if (closing) {
-            throw new Exception("Cannot add result to queue: EventQueue has been closed");
+            throw new RuntimeException("Cannot add result to queue: EventQueue has been closed");
         }
         try {
             queue.add(new CloudIndirectResult(result));
@@ -73,12 +73,24 @@ public class EventQueue {
         }
     }
 
-    public void addExpectedResult(int requestID, RequestOperation op, CompletableFuture<Node> future) throws Exception {
+    public void addExpectedResult(int requestID, RequestOperation op, CompletableFuture<Node> future) throws RuntimeException {
         if (closing) {
-            throw new Exception("Cannot add result to queue: EventQueue has been closed");
+            throw new RuntimeException("Cannot add result to queue: EventQueue has been closed");
         }
         try {
             queue.add(new CloudExpectedResult(requestID, op, future));
+        } catch (IllegalStateException e) {
+            LOG.error("EventQueue add item failed", e);
+            throw e;
+        }
+    }
+
+    public void addProviderError(int requestID, RequestOperation op, CompletableFuture<Node> future, CloudProviderException ex) throws RuntimeException {
+        if (closing) {
+            throw new RuntimeException("Cannot add result to queue: EventQueue has been closed");
+        }
+        try {
+            queue.add(new CloudProviderError(requestID, op, future, ex));
         } catch (IllegalStateException e) {
             LOG.error("EventQueue add item failed", e);
             throw e;
