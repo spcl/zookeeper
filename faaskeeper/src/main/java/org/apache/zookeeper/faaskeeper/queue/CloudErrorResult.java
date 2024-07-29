@@ -7,7 +7,6 @@ import java.util.concurrent.CompletableFuture;
 
 public class CloudErrorResult extends CloudIndirectResult {
     public final CloudProviderException cloudException;
-    public final CompletableFuture<Node> future;
     public final RequestOperation op;
 
     public CloudErrorResult(RequestOperation op, CloudProviderException ex, CompletableFuture<Node> future) {
