@@ -82,9 +82,10 @@ public class SubmitterThread implements Runnable {
 
                     LOG.debug("Sending create req to providerClient");
                     providerClient.sendRequest(sessionID + "-" + String.valueOf(request.requestID), op.generateRequest());
-                } catch (Exception ex) { // Provider exception
+                } catch (CloudProviderException ex) { // Provider exception
                     LOG.error("Provider exception:", ex);
-                    eventQueue.addProviderError(request.requestID, (RequestOperation) request.operation, request.future, new CloudProviderException());
+                    // eventQueue.addProviderError(request.requestID, (RequestOperation) request.operation, request.future, new CloudProviderException(ex));
+                    eventQueue.addProviderError((RequestOperation) request.operation, new CloudProviderException(ex), request.future);
                 }
 
             } else if (request.operation instanceof DirectOperation) {

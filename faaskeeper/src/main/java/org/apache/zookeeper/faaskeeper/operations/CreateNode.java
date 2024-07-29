@@ -11,6 +11,9 @@ import org.apache.zookeeper.faaskeeper.FaasKeeperClient;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
+import org.apache.zookeeper.faaskeeper.queue.CloudErrorResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudJsonResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
@@ -53,7 +56,11 @@ public class CreateNode extends RequestOperation {
         return requestData;
     }
 
-    public void processResult(JsonNode result, CompletableFuture<Node> future) {
+
+    public void processResult(CloudJsonResult event) {
+        JsonNode result = event.result;
+        CompletableFuture<Node> future = event.getFuture();
+        
         String status = result.get("status").asText();
         if ("success".equals(status)) {
             try {
@@ -121,11 +128,28 @@ public class CreateNode extends RequestOperation {
                     ((AsyncCallback.StringCallback)this.cb).processResult(errorCode, this.getPath(), this.callbackCtx, null);
                 } else if (this.cb instanceof AsyncCallback.Create2Callback) {
                     LOG.debug("Invoking createNode Create2Callback");
-                    ((AsyncCallback.Create2Callback)this.cb).processResult(Code.OK.intValue(), this.getPath(), this.callbackCtx, null, null);
+                    ((AsyncCallback.Create2Callback)this.cb).processResult(errorCode, this.getPath(), this.callbackCtx, null, null);
                 }
             }
         }
     }
+
+    public void processError(CloudErrorResult event) {
+        CompletableFuture<Node> future = event.getFuture();
+        future.completeExceptionally(event.cloudException);
+        
+        if (this.cb != null) {
+            if (this.cb instanceof AsyncCallback.StringCallback) {
+                LOG.debug("Invoking createNode string callback");
+                ((AsyncCallback.StringCallback)this.cb).processResult(Code.SYSTEMERROR.intValue(), this.getPath(), this.callbackCtx, null);
+            } else if (this.cb instanceof AsyncCallback.Create2Callback) {
+                LOG.debug("Invoking createNode Create2Callback");
+                ((AsyncCallback.Create2Callback)this.cb).processResult(Code.SYSTEMERROR.intValue(), this.getPath(), this.callbackCtx, null, null);
+            }
+        }
+    }
+
+    
 
     public String getName() {
         return "create_node";

@@ -1,11 +1,20 @@
 package org.apache.zookeeper.faaskeeper.queue;
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.concurrent.CompletableFuture;
+import org.apache.zookeeper.faaskeeper.model.Node;
 
-public class CloudIndirectResult extends EventQueueItem {
-    public final JsonNode result;
-    public CloudIndirectResult(JsonNode result) {
+public abstract class CloudIndirectResult extends EventQueueItem {
+    protected CompletableFuture<Node> future;
+    
+    public CloudIndirectResult() {
         super();
-        this.result = result;
+    }
+
+    public void setFuture(CompletableFuture<Node> future) {
+        this.future = future;
+    }
+
+    public CompletableFuture<Node> getFuture() {
+        return future;
     }
 
     public String getEventType() {

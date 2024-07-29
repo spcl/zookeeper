@@ -1,9 +1,9 @@
 package org.apache.zookeeper.faaskeeper.provider;
 
 import java.util.Map;
-import java.util.Optional;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.FaasKeeperConfig;
+import org.apache.zookeeper.faaskeeper.queue.CloudProviderException;
 
 // import java.util.List;
 // import java.util.Optional;
@@ -19,7 +19,7 @@ public abstract class ProviderClient {
 
     public abstract void registerSession(String sessionId, String sourceAddr, boolean heartbeat);
 
-    public abstract void sendRequest(String requestId, Map <String, Object> data) throws Exception;
+    public abstract void sendRequest(String requestId, Map <String, Object> data) throws CloudProviderException;
 
     public abstract Node getData(String path) throws Exception;
 

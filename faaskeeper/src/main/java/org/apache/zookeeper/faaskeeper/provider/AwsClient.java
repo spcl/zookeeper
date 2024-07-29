@@ -32,10 +32,10 @@ import java.util.stream.Collectors;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.QueueType;
 import org.apache.zookeeper.faaskeeper.model.Version;
+import org.apache.zookeeper.faaskeeper.queue.CloudProviderException;
 import org.apache.zookeeper.faaskeeper.model.EpochCounter;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.faaskeeper.FaasKeeperConfig;
 
@@ -91,7 +91,7 @@ public class AwsClient extends ProviderClient {
         }
     }
 
-    public void sendRequest(String requestId, Map <String, Object> data) throws Exception {
+    public void sendRequest(String requestId, Map <String, Object> data) throws CloudProviderException {
         try {
             if (config.getWriterQueue() == QueueType.SQS) { 
                 ObjectMapper objectMapper = new ObjectMapper();
@@ -111,12 +111,12 @@ public class AwsClient extends ProviderClient {
                 SendMessageResult res = sqs.sendMessage(send_msg_request);
                 LOG.debug("Msg sent successfully: " + res.toString());
             } else {
-                throw new UnsupportedOperationException("Unsupported queue type specified in sendRequest: " + config.getWriterQueue().name());
+                throw new CloudProviderException("Unsupported queue type specified in sendRequest: " + config.getWriterQueue().name());
             }
 
         } catch(Exception e) {
             LOG.error("Error sending request: ", e);
-            throw e;
+            throw new CloudProviderException(e);
         }
 
     }

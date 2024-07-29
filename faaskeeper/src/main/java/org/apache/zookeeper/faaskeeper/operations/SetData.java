@@ -14,6 +14,8 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.faaskeeper.model.Node;
 import org.apache.zookeeper.faaskeeper.model.SystemCounter;
 import org.apache.zookeeper.faaskeeper.model.Version;
+import org.apache.zookeeper.faaskeeper.queue.CloudErrorResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudJsonResult;
 import org.apache.zookeeper.KeeperException.Code;
 
 import org.slf4j.Logger;
@@ -48,7 +50,10 @@ public class SetData extends RequestOperation {
         return requestData;
     }
 
-    public void processResult(JsonNode result, CompletableFuture<Node> future) {
+    public void processResult(CloudJsonResult event) {
+        JsonNode result = event.result;
+        CompletableFuture<Node> future = event.getFuture();
+
         if ("success".equals(result.get("status").asText())) {
             try {
                 Node n = new Node(result.get("path").asText());
@@ -105,6 +110,15 @@ public class SetData extends RequestOperation {
             if (this.cb != null) {
                 ((AsyncCallback.StatCallback)this.cb).processResult(code.intValue(), this.getPath(), this.callbackCtx, null);
             }
+        }
+    }
+
+    public void processError(CloudErrorResult event) {
+        CompletableFuture<Node> future = event.getFuture();
+        future.completeExceptionally(event.cloudException);
+
+        if (this.cb != null) {
+            ((AsyncCallback.StatCallback)this.cb).processResult(Code.SYSTEMERROR.intValue(), this.getPath(), this.callbackCtx, null);
         }
     }
 

@@ -1,11 +1,9 @@
 package org.apache.zookeeper.faaskeeper.operations;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import org.apache.zookeeper.faaskeeper.queue.CloudErrorResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudJsonResult;
 
-import org.apache.zookeeper.faaskeeper.model.Node;
-
-import com.fasterxml.jackson.databind.JsonNode;
 
 public abstract class RequestOperation extends Operation {
     public RequestOperation(String sessionId, String path) {
@@ -22,5 +20,7 @@ public abstract class RequestOperation extends Operation {
         return true;
     }
 
-    public abstract void processResult(JsonNode result, CompletableFuture<Node> future);
+    public abstract void processResult(CloudJsonResult event);
+
+    public abstract void processError(CloudErrorResult event);
 }

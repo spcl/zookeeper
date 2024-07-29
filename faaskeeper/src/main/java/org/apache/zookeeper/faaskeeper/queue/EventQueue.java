@@ -66,7 +66,7 @@ public class EventQueue {
             throw new RuntimeException("Cannot add result to queue: EventQueue has been closed");
         }
         try {
-            queue.add(new CloudIndirectResult(result));
+            queue.add(new CloudJsonResult(result));
         } catch (IllegalStateException e) {
             LOG.error("EventQueue add item failed", e);
             throw e;
@@ -85,12 +85,12 @@ public class EventQueue {
         }
     }
 
-    public void addProviderError(int requestID, RequestOperation op, CompletableFuture<Node> future, CloudProviderException ex) throws RuntimeException {
+    public void addProviderError(RequestOperation op, CloudProviderException ex, CompletableFuture<Node> future) throws RuntimeException {
         if (closing) {
             throw new RuntimeException("Cannot add result to queue: EventQueue has been closed");
         }
         try {
-            queue.add(new CloudProviderError(requestID, op, future, ex));
+            queue.add(new CloudErrorResult(op, ex, future));
         } catch (IllegalStateException e) {
             LOG.error("EventQueue add item failed", e);
             throw e;

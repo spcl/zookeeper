@@ -7,6 +7,9 @@ import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.faaskeeper.model.Node;
+import org.apache.zookeeper.faaskeeper.queue.CloudErrorResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudJsonResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.CompletableFuture;
@@ -34,8 +37,10 @@ public class DeleteNode extends RequestOperation {
         return requestData;
     }
 
-    public void processResult(JsonNode result, CompletableFuture<Node> future) {
-        LOG.debug("Processing res: " + result.toString());
+
+    public void processResult(CloudJsonResult event) {
+        JsonNode result = event.result;
+        CompletableFuture<Node> future = event.getFuture();
 
         int rc = Code.OK.intValue();
 
@@ -70,6 +75,15 @@ public class DeleteNode extends RequestOperation {
 
         if (this.cb != null) {
             ((AsyncCallback.VoidCallback)this.cb).processResult(rc, this.getPath(), this.callbackCtx);
+        }
+    }
+
+    public void processError(CloudErrorResult event) {
+        CompletableFuture<Node> future = event.getFuture();
+        future.completeExceptionally(event.cloudException);
+        
+        if (this.cb != null) {
+            ((AsyncCallback.VoidCallback)this.cb).processResult(Code.SYSTEMERROR.intValue(), this.getPath(), this.callbackCtx);            
         }
     }
 

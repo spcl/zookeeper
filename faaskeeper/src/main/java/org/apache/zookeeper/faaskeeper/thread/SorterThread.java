@@ -17,9 +17,12 @@ import org.apache.zookeeper.faaskeeper.operations.NodeExists;
 import org.apache.zookeeper.faaskeeper.operations.GetChildren;
 import org.apache.zookeeper.faaskeeper.operations.GetData;
 import org.apache.zookeeper.faaskeeper.operations.ReadExceptionResult;
+import org.apache.zookeeper.faaskeeper.operations.RequestOperation;
 import org.apache.zookeeper.faaskeeper.queue.CloudDirectResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudExpectedResult;
 import org.apache.zookeeper.faaskeeper.queue.CloudIndirectResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudErrorResult;
+import org.apache.zookeeper.faaskeeper.queue.CloudJsonResult;
 import org.apache.zookeeper.faaskeeper.queue.WatchNotification;
 
 public class SorterThread implements Runnable {
@@ -87,16 +90,16 @@ public class SorterThread implements Runnable {
 
                         processedResult = true;
                         
-                    } else if (event instanceof CloudIndirectResult) {
-                        CloudIndirectResult indirectResult = (CloudIndirectResult) event;
+                    } else if (event instanceof CloudJsonResult) {
+                        CloudJsonResult jsonResult = (CloudJsonResult) event;
                         
-                        int reqID = Integer.parseInt(indirectResult.result
+                        int reqID = Integer.parseInt(jsonResult.result
                                 .get("event")
                                 .asText().split("-")[1]);
                         
                         if (futures.isEmpty()) {
                             LOG.error(String.format("Ignoring the result: %s with req_id: %d due to non-existent future",
-                                indirectResult.result.toString(), reqID));
+                            jsonResult.result.toString(), reqID));
                             continue;
                         }
 
@@ -105,8 +108,15 @@ public class SorterThread implements Runnable {
                         assert expectedResult.requestID == reqID;
                         // expectedResult
                         processedResult = true;
-                        expectedResult.op.processResult(indirectResult.result, expectedResult.future);
                         
+                        jsonResult.setFuture(expectedResult.future);
+                        expectedResult.op.processResult(jsonResult);
+                        
+                    } else if (event instanceof CloudErrorResult) {
+                        CloudErrorResult e = (CloudErrorResult) event;
+                        e.op.processError(e);
+                        // e.op.processResult(null, e.future);
+
                     } else if (event instanceof CloudExpectedResult) {
                         event.setTimestamp(System.currentTimeMillis());
                         LOG.debug("RECVD CloudExpectedResult");
