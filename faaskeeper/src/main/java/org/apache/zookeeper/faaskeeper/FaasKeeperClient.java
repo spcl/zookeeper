@@ -1,9 +1,9 @@
 package org.apache.zookeeper.faaskeeper;
 
 import java.util.Map;
-import java.util.HashMap;
-import java.util.UUID;
 import java.util.List;
+import java.util.Random;
+import java.util.HashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +102,7 @@ public class FaasKeeperClient {
     public String start() throws Exception {
         LOG.info("Starting FK connection");
         responseHandler = new SqsListener(eventQueue, cfg);
-        sessionId = UUID.randomUUID().toString().substring(0, 8);
+        sessionId = Long.toString(Math.abs(new Random().nextLong()));
 
         workThread = new SubmitterThread(workQueue, eventQueue, providerClient, sessionId);
         sorterThread = new SorterThread(eventQueue);
@@ -137,6 +137,10 @@ public class FaasKeeperClient {
         }
     }
 
+    public long getSessionId() {
+        return Long.parseLong(sessionId);
+    }
+
     // TODO for create API: Implement all types of Znode: Sequential, Ephemeral, Container etc
     // TODO: Throw unimplemented exceptions for Znode types not implemented yet / Non null ACL passed
     public String create(
@@ -144,10 +148,6 @@ public class FaasKeeperClient {
         byte[] data,
         List<ACL> acl,
         CreateMode createMode) throws KeeperException, InterruptedException {
-            if (!createMode.equals(CreateMode.PERSISTENT)) {
-                throw new UnsupportedOperationException("This method is unimplemented");
-            }
-
             final String clientPath = path;
             PathUtils.validatePath(clientPath, createMode.isSequential());
             EphemeralType.validateTTL(createMode, -1);
@@ -205,10 +205,6 @@ public class FaasKeeperClient {
         CreateMode createMode,
         Stat stat,
         long ttl) throws KeeperException, InterruptedException {
-            if (ttl != -1 || !createMode.equals(CreateMode.PERSISTENT)) {
-                throw new UnsupportedOperationException("This method is unimplemented");
-            }
-
             final String clientPath = path;
             PathUtils.validatePath(clientPath, createMode.isSequential());
             EphemeralType.validateTTL(createMode, ttl);
@@ -232,10 +228,6 @@ public class FaasKeeperClient {
         CreateMode createMode,
         StringCallback cb,
         Object ctx) {
-            if (!createMode.equals(CreateMode.PERSISTENT)) {
-                throw new UnsupportedOperationException("This method is unimplemented");
-            }
-
             final String clientPath = path;
             PathUtils.validatePath(clientPath, createMode.isSequential());
             EphemeralType.validateTTL(createMode, -1);
@@ -269,10 +261,6 @@ public class FaasKeeperClient {
         Create2Callback cb,
         Object ctx,
         long ttl) {
-            if (ttl != -1 || !createMode.equals(CreateMode.PERSISTENT)) {
-                throw new UnsupportedOperationException("This method is unimplemented");
-            }
-
             final String clientPath = path;
             PathUtils.validatePath(clientPath, createMode.isSequential());
             EphemeralType.validateTTL(createMode, -1);

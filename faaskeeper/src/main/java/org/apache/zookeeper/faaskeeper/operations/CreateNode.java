@@ -49,8 +49,7 @@ public class CreateNode extends RequestOperation {
         requestData.put("path", this.path);
         requestData.put("session_id", this.sessionId);
         requestData.put("version", -1);
-        // FIXME: Handle flags in FK. 0 is passed  as flag instead of actual value
-        requestData.put("flags", 0);
+        requestData.put("flags", this.flags);
         requestData.put("data", this.value);
 
         return requestData;
